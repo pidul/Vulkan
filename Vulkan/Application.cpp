@@ -54,24 +54,24 @@ void Application::CreateSwapChain() {
                                 (swapChainSupport.capabilities.maxImageCount < 3) ? swapChainSupport.capabilities.maxImageCount : 3;
 
     VkSwapchainCreateInfoKHR createInfo = {
-        VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,            // sType
-        nullptr,                                                // pNext
-        0,                                                        // flags
-        m_Surface,                                                // surface
-        imageCount,                                                // minImageCount
-        surfaceFormat.format,                                    // imageFormat
-        surfaceFormat.colorSpace,                                // imageColorSpace
-        extent,                                                    // imageExtent
-        1,                                                        // imageArrayLayers
-        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,                    // imageUsage
-        VK_SHARING_MODE_EXCLUSIVE,                                // imageSharingMode
-        1,                                                        // queueFamilyIndexCount
-        &m_QueueFamilyIndice.value(),                            // pQueueFamilyIndices
-        swapChainSupport.capabilities.currentTransform,            // preTransform
-        VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,                        // compositeAlpha
-        presentMode,                                            // presentMode
-        VK_TRUE,                                                // clipped
-        VK_NULL_HANDLE                                            // oldSwapchain
+        VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,                // sType
+        nullptr,                                                    // pNext
+        0,                                                          // flags
+        m_Surface,                                                  // surface
+        imageCount,                                                 // minImageCount
+        surfaceFormat.format,                                       // imageFormat
+        surfaceFormat.colorSpace,                                   // imageColorSpace
+        extent,                                                     // imageExtent
+        1,                                                          // imageArrayLayers
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,                        // imageUsage
+        VK_SHARING_MODE_EXCLUSIVE,                                  // imageSharingMode
+        1,                                                          // queueFamilyIndexCount
+        &m_QueueFamilyIndice.value(),                               // pQueueFamilyIndices
+        swapChainSupport.capabilities.currentTransform,             // preTransform
+        VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,                          // compositeAlpha
+        presentMode,                                                // presentMode
+        VK_TRUE,                                                    // clipped
+        VK_NULL_HANDLE                                              // oldSwapchain
     };
 
     if (vkCreateSwapchainKHR(m_Device, &createInfo, nullptr, &m_SwapChain) != VK_SUCCESS) {
@@ -1301,14 +1301,14 @@ void Application::DrawFrame() {
     VkSemaphore signalSemaphores[] = { m_RenderFinishedSemaphores[imageIndex] };
     VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
     VkSubmitInfo submitInfo = {
-        VK_STRUCTURE_TYPE_SUBMIT_INFO,                                // sType
+        VK_STRUCTURE_TYPE_SUBMIT_INFO,                              // sType
         nullptr,                                                    // pNext
-        1,                                                            // waitSemaphoreCount
-        waitSemaphores,                                                // pWaitSemaphores
-        waitStages,                                                    // pWaitDstStageMask
-        1,                                                            // commandBufferCount
-        &m_CommandBuffers[imageIndex],                                // pCommandBuffers
-        1,                                                            // signalSemaphoreCount
+        1,                                                          // waitSemaphoreCount
+        waitSemaphores,                                             // pWaitSemaphores
+        waitStages,                                                 // pWaitDstStageMask
+        1,                                                          // commandBufferCount
+        &m_CommandBuffers[imageIndex],                              // pCommandBuffers
+        1,                                                          // signalSemaphoreCount
         signalSemaphores                                            // pSignalSemaphores
     };
     if (vkQueueSubmit(m_Queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
