@@ -3,6 +3,9 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
+#define TINYOBJLOADER_IMPLEMENTATION
+#include <tiny_obj_loader.h>
+
 void Application::Run() {
     InitWindow();
     InitVulkan();
@@ -471,12 +474,53 @@ void Application::InitVulkan() {
     CreateRenderPass();
     CreateFramebuffers();
     CreateGraphicsPipeline();
+    LoadModel();
     CreateVertexBuffer();
     CreateIndexBuffer();
     CreateUniformBuffers();
     CreateDescriptorPool();
     RecordCommandBuffers();
     CreateSemaphores();
+}
+
+void Application::LoadModel() {
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+
+    std::string warning, error;
+
+    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warning, &error, MODEL_PATH.c_str())) {
+        throw std::runtime_error(warning + error);
+    }
+
+    std::unordered_map<Vertex, uint32_t> uniqueVertices;
+
+    for (auto shape : shapes) {
+        for (const auto& index : shape.mesh.indices) {
+            Vertex vertex;
+
+            vertex.pos = {
+                attrib.vertices[3 * index.vertex_index + 0],
+                attrib.vertices[3 * index.vertex_index + 1],
+                attrib.vertices[3 * index.vertex_index + 2]
+            };
+
+            vertex.texCoord = {
+                attrib.texcoords[2 * index.texcoord_index + 0],
+                1.0f -attrib.texcoords[2 * index.texcoord_index + 1]
+            };
+
+            vertex.color = { 1.0f, 1.0f, 1.0f };
+
+            if (uniqueVertices.count(vertex) == 0) {
+                uniqueVertices[vertex] = static_cast<uint32_t>(m_Vertices.size());
+                m_Vertices.push_back(vertex);
+            }
+
+            m_Indices.push_back(uniqueVertices[vertex]);
+        }
+    }
 }
 
 void Application::CreateDepthResources() {
@@ -552,7 +596,7 @@ VkImageView Application::CreateImageView(VkImage img, VkFormat format, VkImageAs
 
 void Application::CreateTextureImage() {
     int texWidth, texHeight, texChannels;
-    stbi_uc* pixels = stbi_load("textures/texture.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    stbi_uc* pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
     if (!pixels) {
         throw std::runtime_error("cannot load texture");
@@ -749,7 +793,7 @@ void Application::EndSingleTimeCommands(VkCommandBuffer buffer) {
 }
 
 void Application::CreateVertexBuffer() {
-    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+    VkDeviceSize bufferSize = sizeof(m_Vertices[0]) * m_Vertices.size();
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
 
@@ -757,7 +801,7 @@ void Application::CreateVertexBuffer() {
                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
     void* data;
     vkMapMemory(m_Device, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, vertices.data(), bufferSize);
+    memcpy(data, m_Vertices.data(), bufferSize);
     vkUnmapMemory(m_Device, stagingBufferMemory);
 
     CreateBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -770,7 +814,7 @@ void Application::CreateVertexBuffer() {
 }
 
 void Application::CreateIndexBuffer() {
-    VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+    VkDeviceSize bufferSize = sizeof(m_Indices[0]) * m_Indices.size();
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
 
@@ -778,7 +822,7 @@ void Application::CreateIndexBuffer() {
         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
     void* data;
     vkMapMemory(m_Device, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, indices.data(), bufferSize);
+    memcpy(data, m_Indices.data(), bufferSize);
     vkUnmapMemory(m_Device, stagingBufferMemory);
 
     CreateBuffer(bufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -893,7 +937,7 @@ void Application::UpdateUniformBuffer(uint32_t currImg) {
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currTime - startTime).count();
 
     UniformBufferObject ubo{};
-    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(10.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)); // should manipulate camera
     ubo.projection = glm::perspective(glm::radians(45.0f), m_SwapChainExtent.width / (float)m_SwapChainExtent.height, 0.1f, 10.0f);
     ubo.projection[1][1] *= -1; // flip sign of scaling vector
@@ -1067,10 +1111,10 @@ void Application::RecordCommandBuffers() {
         vkCmdBindPipeline(m_CommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline);
         VkDeviceSize offsets = 0;
         vkCmdBindVertexBuffers(m_CommandBuffers[i], 0, 1, &m_VertexBuffer, &offsets);
-        vkCmdBindIndexBuffer(m_CommandBuffers[i], m_IndexBuffer, offsets, VK_INDEX_TYPE_UINT16);
+        vkCmdBindIndexBuffer(m_CommandBuffers[i], m_IndexBuffer, offsets, VK_INDEX_TYPE_UINT32);
         vkCmdBindDescriptorSets(m_CommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipelineLayout,
                                 0, 1, &m_DescriptorSets[i], 0, nullptr);
-        vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+        vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(m_Indices.size()), 1, 0, 0, 0);
         vkCmdEndRenderPass(m_CommandBuffers[i]);
         if (vkEndCommandBuffer(m_CommandBuffers[i]) != VK_SUCCESS) {
             throw std::runtime_error("cannot end command buffer");
