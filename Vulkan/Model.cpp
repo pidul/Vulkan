@@ -16,7 +16,7 @@ Model::Model(Application* mother, VkDevice& device, std::string modelFilename, s
     CreateTextureImageView();
     CreateVertexBuffer();
 
-    m_Translation = glm::vec3(0.0f, -1.0f, 0.0f);
+    m_Translation = glm::vec3(0.0f, 0.0f, 0.0f);
     m_Scale = glm::vec3(1.0f, 1.0f, 1.0f);
     m_Rotation = glm::vec3(0.0f, 0.0f, 1.0f);
     CreateIndexBuffer();
@@ -150,7 +150,7 @@ void Model::CreateIndexBuffer() {
     vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
 }
 
-UniformBufferObject Model::UpdateMVPMatrices() {
+UniformBufferObject Model::UpdateMVPMatrices(glm::mat4& viewMatrix) {
     static auto startTime = std::chrono::high_resolution_clock::now();
     auto currTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currTime - startTime).count();
@@ -161,7 +161,7 @@ UniformBufferObject Model::UpdateMVPMatrices() {
     ubo.model = glm::translate(ubo.model, m_Translation);
     ubo.model = glm::scale(ubo.model, m_Scale);
     ubo.model = glm::rotate(ubo.model, time * glm::radians(10.0f), m_Rotation);
-    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view = viewMatrix;
     ubo.projection = glm::perspective(glm::radians(45.0f), m_Width / (float)m_Height, 0.1f, 10.0f);
     ubo.projection[1][1] *= -1; // flip sign of scaling vector
 
@@ -178,8 +178,8 @@ void Model::Cleanup() {
     vkFreeMemory(m_Device, m_TextureImageMemory, nullptr);
 }
 
-VkCommandBuffer* Model::Draw(uint32_t index, VkCommandBufferBeginInfo* beginInfo, VkPipelineLayout& pipelineLayout) {
-    UniformBufferObject ubo = UpdateMVPMatrices();
+VkCommandBuffer* Model::Draw(uint32_t index, VkCommandBufferBeginInfo* beginInfo, VkPipelineLayout& pipelineLayout, glm::mat4& viewMatrix) {
+    UniformBufferObject ubo = UpdateMVPMatrices(viewMatrix);
     VkDeviceSize offsets = 0;
     // vkResetCommandBuffer(m_CommandBuffers[index], 0);
     vkBeginCommandBuffer(m_CommandBuffers[index], beginInfo);

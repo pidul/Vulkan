@@ -3,6 +3,7 @@
 #include "CommonHeaders.h"
 #include "Vertex.h"
 #include "Model.h"
+#include "Camera.h"
 
 const std::vector<const char*> validationLayers = {
 #ifdef _DEBUG
@@ -30,6 +31,7 @@ public:
 
 private:
     std::vector<Model> m_Models;
+    Camera m_Camera;
 
     bool framebufferResized = false;
     GLFWwindow* m_Window;
@@ -68,6 +70,8 @@ private:
 
     void InitWindow();
     static void FramebufferResizeCallback(GLFWwindow*, int, int);
+    static void KeyboardInputCallback(GLFWwindow*, int, int, int, int);
+    static void MouseInputCallback(GLFWwindow*, double, double);
     void InitVulkan();
     void CreateInstance();
 

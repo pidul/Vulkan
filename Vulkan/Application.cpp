@@ -5,10 +5,15 @@ void Application::Run() {
     InitVulkan();
     Model tavern(this, m_Device, MODEL_PATH, TEXTURE_PATH);
     tavern.UpdateWindowSize(m_SwapChainExtent.width, m_SwapChainExtent.height);
-    // Model cube(this, m_Device, "models/cube.obj", "textures/texture.jpg");
-    // cube.UpdateWindowSize(m_SwapChainExtent.width, m_SwapChainExtent.height);
+    Model cube(this, m_Device, "models/cube.obj", "textures/texture.jpg");
+    cube.UpdateWindowSize(m_SwapChainExtent.width, m_SwapChainExtent.height);
+    cube.UpdateScaleVector(glm::vec3(0.5f, 0.5f, 0.5f));
+    cube.UpdateTranslationVector(glm::vec3(0.0f, 1.5f, -1.5f));
+    cube.UpdateRotationVector(glm::vec3(0.0f, 1.0f, 0.0f));
     m_Models.push_back(tavern);
-    // m_Models.push_back(cube);
+    m_Models.push_back(cube);
+    m_Camera.m_Position = glm::vec3(3.0f, 3.0f, 1.0f);
+    m_Camera.m_LookAt = glm::vec3(0.0f, 0.0f, 0.0f);
     MainLoop();
     Cleanup();
 }
@@ -460,6 +465,8 @@ void Application::InitWindow() {
 
     m_Window = glfwCreateWindow(DEFAULT_WIDTH, DEFAULT_HEIGHT, "Vulkan for PIZI 2021", nullptr, nullptr);
     glfwSetWindowUserPointer(m_Window, this);
+    glfwSetKeyCallback(m_Window, KeyboardInputCallback);
+    glfwSetCursorPosCallback(m_Window, MouseInputCallback);
     glfwSetFramebufferSizeCallback(m_Window, FramebufferResizeCallback);
 }
 
@@ -965,7 +972,8 @@ void Application::RecordCommandBuffers(uint32_t index) {
     vkCmdBeginRenderPass(m_CommandBuffers[index], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
 
     for (auto& model : m_Models) {
-        VkCommandBuffer* secondaryCmdBuffer = model.Draw(index, &secondaryCmdBuffBeginInfo, m_GraphicsPipelineLayout);
+        glm::mat4 viewMatrix = m_Camera.GetViewMatrix();
+        VkCommandBuffer* secondaryCmdBuffer = model.Draw(index, &secondaryCmdBuffBeginInfo, m_GraphicsPipelineLayout, viewMatrix);
 
         vkCmdExecuteCommands(m_CommandBuffers[index], 1, secondaryCmdBuffer);
     }
@@ -979,6 +987,49 @@ void Application::RecordCommandBuffers(uint32_t index) {
 void Application::FramebufferResizeCallback(GLFWwindow* window, int width, int height) {
     auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
     app->framebufferResized = true;
+}
+
+void Application::KeyboardInputCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE) {
+        glfwSetWindowShouldClose(window, 1);
+    }
+    int state = glfwGetKey(window, GLFW_KEY_W);
+    if (state == GLFW_PRESS) {
+        app->m_Camera.MovePosition(MoveDirection::up);
+    }
+    state = glfwGetKey(window, GLFW_KEY_S);
+    if (state == GLFW_PRESS) {
+        app->m_Camera.MovePosition(MoveDirection::down);
+    }
+    state = glfwGetKey(window, GLFW_KEY_A);
+    if (state == GLFW_PRESS) {
+        app->m_Camera.MovePosition(MoveDirection::left);
+    }
+    state = glfwGetKey(window, GLFW_KEY_D);
+    if (state == GLFW_PRESS) {
+        app->m_Camera.MovePosition(MoveDirection::right);
+    }
+}
+
+void Application::MouseInputCallback(GLFWwindow* window, double xpos, double ypos) {
+    static double prevX = 0.0, prevY = 0.0;
+    double dX = xpos - prevX;
+    double dY = ypos - prevY;
+    prevX = xpos; prevY = ypos;
+    auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
+    if (dX < 0) {
+        app->m_Camera.MoveTarget(MoveDirection::left);
+    } else if (dX > 0) {
+        app->m_Camera.MoveTarget(MoveDirection::right);
+    }
+
+    if (dY < 0) {
+        app->m_Camera.MoveTarget(MoveDirection::down);
+    }
+    else if (dY > 0) {
+        app->m_Camera.MoveTarget(MoveDirection::up);
+    }
 }
 
 void Application::CreateFramebuffers() {

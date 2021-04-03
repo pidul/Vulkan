@@ -20,7 +20,19 @@ public:
         return static_cast<uint32_t>(m_Indices.size());
     }
 
-    VkCommandBuffer* Draw(uint32_t index, VkCommandBufferBeginInfo* beginInfo, VkPipelineLayout& pipelineLayout);
+    void UpdateTranslationVector(glm::vec3 tv) {
+        m_Translation = tv;
+    }
+
+    void UpdateScaleVector(glm::vec3 sv) {
+        m_Scale = sv;
+    }
+
+    void UpdateRotationVector(glm::vec3 rv) {
+        m_Rotation = rv;
+    }
+
+    VkCommandBuffer* Draw(uint32_t index, VkCommandBufferBeginInfo* beginInfo, VkPipelineLayout& pipelineLayout, glm::mat4& viewMatrix);
 
 private:
     Application* m_Mother;
@@ -54,5 +66,5 @@ private:
     void LoadModel(std::string);
     void CreateVertexBuffer();
     void CreateIndexBuffer();
-    UniformBufferObject UpdateMVPMatrices();
+    UniformBufferObject UpdateMVPMatrices(glm::mat4& viewMatrix);
 };
