@@ -5,8 +5,8 @@ void Application::Run() {
     InitVulkan();
     Model tavern(this, m_Device, MODEL_PATH, TEXTURE_PATH);
     tavern.UpdateWindowSize(m_SwapChainExtent.width, m_SwapChainExtent.height);
-    Model cube(this, m_Device, "models/cube.obj", "textures/texture.jpg");
-    cube.UpdateWindowSize(m_SwapChainExtent.width, m_SwapChainExtent.height);
+    // Model cube(this, m_Device, "models/cube.obj", "textures/texture.jpg");
+    // cube.UpdateWindowSize(m_SwapChainExtent.width, m_SwapChainExtent.height);
     m_Models.push_back(tavern);
     // m_Models.push_back(cube);
     MainLoop();
@@ -102,7 +102,9 @@ void Application::RecreateSwapChain() {
     CreateFramebuffers();
     CreateDescriptorPool();
     AllocateCommandBuffers();
-    // reallocate descriptor sets in objects
+    for (auto& model : m_Models) {
+        model.UpdateWindowSize(m_SwapChainExtent.width, m_SwapChainExtent.height);
+    }
 }
 
 void Application::CreateImageViews() {
@@ -916,23 +918,21 @@ void Application::AllocateSecondaryCommandBuffer(std::vector<VkCommandBuffer>& c
 }
 
 void Application::RecordCommandBuffers(uint32_t index) {
-    static VkCommandBufferInheritanceInfo inheritanceInfo = {
+    VkCommandBufferInheritanceInfo inheritanceInfo = {
         VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO,          // sType
         nullptr,                                                    // pNext
         m_RenderPass,                                               // renderPass
         0,                                                          // subpass
-        VK_NULL_HANDLE,                                             // framebuffer
+        m_SwapChainFramebuffers[index],                             // framebuffer
         VK_FALSE,                                                   // occlusionQueryEnable
         0,                                                          // queryFlags
         0,                                                          // pipelineStatistics
     };
 
-    inheritanceInfo.framebuffer = m_SwapChainFramebuffers[index];
-
     VkCommandBufferBeginInfo secondaryCmdBuffBeginInfo = {
         VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,                // sType
         nullptr,                                                    // pNext
-        VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT,       // flags
+        VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT,           // flags
         &inheritanceInfo                                            // pInheritanceInfo
     };
 
@@ -1261,7 +1261,7 @@ void Application::CleanupSwapChain() {
 void Application::Cleanup() {
     CleanupSwapChain();
 
-    for (auto model : m_Models) {
+    for (auto& model : m_Models) {
         model.Cleanup();
     }
 

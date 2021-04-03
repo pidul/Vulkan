@@ -12,7 +12,7 @@ void main() {
     outColor = texture(texSampler, fragTexCoord);
     
     vec4 fogColor = vec4(0.2f, 0.2f, 0.2f, 1.0f);
-    float fogFactor = 0.6;
+    float fogFactor = 0.0;
 
     outColor = (1 - fogFactor) * outColor + fogFactor * fogColor;
 }
