@@ -20,20 +20,19 @@ void main() {
     outColor = texture(texSampler, fragTexCoord);
     
     vec4 fogColor = vec4(0.2, 0.2, 0.2, 1.0);
-    float fogFactor = 0.0;
+    float fogFactor = 0.2;
 
-    vec4 ambientColor = vec4(1.0, 1.0, 1.0, 1.0);
-    float ambientFactor = 0.2;
+    vec4 ambientColor = vec4(0.01, 0.01, 0.01, 1.0);
 
     vec3 red = normalize(vec3(lights.red) - fragCoord);
     vec3 green = normalize(vec3(lights.green) - fragCoord);
     vec3 blue = normalize(vec3(lights.blue) - fragCoord);
 
-    float redIntensity = dot(fragNormal, red);
-    float greenIntensity = dot(fragNormal, green);
-    float blueIntensity = dot(fragNormal, blue);
+    float redIntensity = clamp(dot(fragNormal, red), 0.0, 1.0);
+    float greenIntensity = clamp(dot(fragNormal, green), 0.0, 1.0);
+    float blueIntensity = clamp(dot(fragNormal, blue), 0.0, 1.0);
 
-    outColor = outColor * vec4(redIntensity, greenIntensity, blueIntensity, 1.0f) + ambientColor * ambientFactor * outColor;
+    outColor = (outColor * vec4(redIntensity, greenIntensity, blueIntensity, 1.0f)) + (ambientColor * outColor);
 
-    outColor = (1 - fogFactor) * outColor + fogFactor * fogColor;
+    outColor = 0.6 * outColor + 0.4 * fogColor;
 }

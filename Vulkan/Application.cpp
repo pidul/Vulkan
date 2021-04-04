@@ -980,7 +980,7 @@ void Application::RecordCommandBuffers(uint32_t index) {
     }
 
     std::array<VkClearValue, 2> clearColors = {};
-    clearColors[0] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    clearColors[0] = { 0.2f, 0.2f, 0.2f, 1.0f };
     clearColors[1] = { 1.0f, 0 };
 
     VkRenderPassBeginInfo renderPassBeginInfo = {
@@ -1056,6 +1056,19 @@ void Application::KeyboardInputCallback(GLFWwindow* window, int key, int scancod
     state = glfwGetKey(window, GLFW_KEY_D);
     if (state == GLFW_PRESS) {
         app->m_Camera.MovePosition(MoveDirection::right);
+    }
+
+    state = glfwGetKey(window, GLFW_KEY_UP);
+    if (state == GLFW_PRESS) {
+        app->m_Lights.red.z += 0.1f;
+        app->m_Lights.green.z += 0.1f;
+        app->m_Lights.blue.z += 0.1f;
+    }
+    state = glfwGetKey(window, GLFW_KEY_DOWN);
+    if (state == GLFW_PRESS) {
+        app->m_Lights.red.z -= 0.1f;
+        app->m_Lights.green.z -= 0.1f;
+        app->m_Lights.blue.z -= 0.1f;
     }
 }
 
