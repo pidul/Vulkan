@@ -1,15 +1,23 @@
 #include "Application.h"
+#define _USE_MATH_DEFINES
+#include <math.h>
+#include <cmath>
 
 void Application::Run() {
     InitWindow();
     InitVulkan();
+    m_Lights.red = glm::vec4(std::cos(0), std::sin(0), 1.0f, 1.0f);
+    m_Lights.green = glm::vec4(std::cos(M_PI / 180 * 120), std::sin(M_PI / 180 * 120), 1.0f, 1.0f);
+    m_Lights.blue = glm::vec4(std::cos(M_PI / 180 * 240), std::sin(M_PI / 180 * 240), 1.0f, 1.0f);
     Model tavern(this, m_Device, MODEL_PATH, TEXTURE_PATH);
     tavern.UpdateWindowSize(m_SwapChainExtent.width, m_SwapChainExtent.height);
+    tavern.AddInstance(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f), false);
     Model cube(this, m_Device, "models/cube.obj", "textures/texture.jpg");
     cube.UpdateWindowSize(m_SwapChainExtent.width, m_SwapChainExtent.height);
-    cube.UpdateScaleVector(glm::vec3(0.5f, 0.5f, 0.5f));
-    cube.UpdateTranslationVector(glm::vec3(0.0f, 1.5f, -1.5f));
-    cube.UpdateRotationVector(glm::vec3(0.0f, 1.0f, 0.0f));
+    cube.AddInstance(glm::vec3(1.5f, 1.5f, 0.0f), glm::vec3(0.2f, 0.2f, 0.2f), glm::vec3(0.0f, 1.0f, 0.0f), false);
+    cube.AddInstance(m_Lights.red, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(0.0f, 0.0f, 1.0f), true);
+    cube.AddInstance(m_Lights.blue, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(0.0f, 0.0f, 1.0f), true);
+    cube.AddInstance(m_Lights.green, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(0.0f, 0.0f, 1.0f), true);
     m_Models.push_back(tavern);
     m_Models.push_back(cube);
     m_Camera.m_Position = glm::vec3(3.0f, 3.0f, 1.0f);
@@ -95,6 +103,13 @@ void Application::CreateSwapChain() {
 }
 
 void Application::RecreateSwapChain() {
+    int width = 0, height = 0;
+    glfwGetFramebufferSize(m_Window, &width, &height);
+    while (width == 0 || height == 0) {
+        glfwGetFramebufferSize(m_Window, &width, &height);
+        glfwWaitEvents();
+    }
+
     vkDeviceWaitIdle(m_Device);
 
     CleanupSwapChain();
@@ -289,10 +304,17 @@ void Application::CreateGraphicsPipeline() {
         dynamicStates                                               // pDynamicStates
     };
 
-    VkPushConstantRange pushConstantRanges = {
+    std::array<VkPushConstantRange, 2> pushConstantRanges = {};
+    pushConstantRanges[0] = {
         VK_SHADER_STAGE_VERTEX_BIT,                                 // stageFlags
         0,                                                          // offset
         sizeof(UniformBufferObject)                                 // size
+    };
+
+    pushConstantRanges[1] = {
+        VK_SHADER_STAGE_FRAGMENT_BIT,                               // stageFlags
+        sizeof(UniformBufferObject),                                // offset
+        sizeof(LightsPositions)                                     // size
     };
 
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
@@ -301,8 +323,8 @@ void Application::CreateGraphicsPipeline() {
         0,                                                          // flags
         1,                                                          // setLayoutCount
         &m_DescriptorSetLayout,                                     // pSetLayouts
-        1,                                                          // pushConstantRangeCount
-        &pushConstantRanges,                                        // pPushConstantRanges
+        static_cast<uint32_t>(pushConstantRanges.size()),           // pushConstantRangeCount
+        pushConstantRanges.data()                                   // pPushConstantRanges
     };
 
     if (vkCreatePipelineLayout(m_Device, &pipelineLayoutCreateInfo, nullptr, &m_GraphicsPipelineLayout) != VK_SUCCESS) {
@@ -463,7 +485,9 @@ void Application::InitWindow() {
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    m_Window = glfwCreateWindow(DEFAULT_WIDTH, DEFAULT_HEIGHT, "Vulkan for PIZI 2021", nullptr, nullptr);
+    m_IsFullscreen = true;
+    const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+    m_Window = glfwCreateWindow(mode->width, mode->height, "Vulkan for PIZI 2021", glfwGetPrimaryMonitor(), nullptr);
     glfwSetWindowUserPointer(m_Window, this);
     glfwSetKeyCallback(m_Window, KeyboardInputCallback);
     glfwSetCursorPosCallback(m_Window, MouseInputCallback);
@@ -968,11 +992,21 @@ void Application::RecordCommandBuffers(uint32_t index) {
         static_cast<uint32_t>(clearColors.size()),              // clearValueCount
         clearColors.data()                                      // pClearValues
     };
+    static auto startTime = std::chrono::high_resolution_clock::now();
+    auto currTime = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(currTime - startTime).count();
+    glm::mat4 viewMatrix = m_Camera.GetViewMatrix();
+
+    glm::mat4 lightsRotation = glm::rotate(glm::mat4(1.0f), time * 1.0f, glm::vec3(0.0f, 0.0f, 1.0f));
+    LightsPositions lp;
+    lp.red = lightsRotation * m_Lights.red, 1.0f;
+    lp.green = lightsRotation * m_Lights.green, 1.0f;
+    lp.blue = lightsRotation * m_Lights.blue, 1.0f;
 
     vkCmdBeginRenderPass(m_CommandBuffers[index], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
 
+    vkCmdPushConstants(m_CommandBuffers[index], m_GraphicsPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(UniformBufferObject), sizeof(lp), &lp);
     for (auto& model : m_Models) {
-        glm::mat4 viewMatrix = m_Camera.GetViewMatrix();
         VkCommandBuffer* secondaryCmdBuffer = model.Draw(index, &secondaryCmdBuffBeginInfo, m_GraphicsPipelineLayout, viewMatrix);
 
         vkCmdExecuteCommands(m_CommandBuffers[index], 1, secondaryCmdBuffer);
@@ -993,6 +1027,19 @@ void Application::KeyboardInputCallback(GLFWwindow* window, int key, int scancod
     auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
     if (key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE) {
         glfwSetWindowShouldClose(window, 1);
+    }
+    else if (key == GLFW_KEY_F && action == GLFW_PRESS) {
+        if (app->m_IsFullscreen) {
+            const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+            glfwSetWindowMonitor(app->m_Window, nullptr, 0, 0, 800, 600, GLFW_DONT_CARE);
+            app->m_IsFullscreen = false;
+        }
+        else {
+            const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+            glfwSetWindowMonitor(app->m_Window, glfwGetPrimaryMonitor(), 0, 0, mode->width, mode->height, GLFW_DONT_CARE);
+            app->m_IsFullscreen = true;
+
+        }
     }
     int state = glfwGetKey(window, GLFW_KEY_W);
     if (state == GLFW_PRESS) {

@@ -15,10 +15,6 @@ Model::Model(Application* mother, VkDevice& device, std::string modelFilename, s
     CreateTextureImage(textureFilename);
     CreateTextureImageView();
     CreateVertexBuffer();
-
-    m_Translation = glm::vec3(0.0f, 0.0f, 0.0f);
-    m_Scale = glm::vec3(1.0f, 1.0f, 1.0f);
-    m_Rotation = glm::vec3(0.0f, 0.0f, 1.0f);
     CreateIndexBuffer();
 }
 
@@ -95,8 +91,11 @@ void Model::LoadModel(std::string modelPath) {
                 attrib.texcoords[2 * index.texcoord_index + 0],
                 1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
             };
-
-            vertex.color = { 1.0f, 1.0f, 1.0f };
+            vertex.normal = {
+                attrib.normals[3 * index.normal_index + 0],
+                attrib.normals[3 * index.normal_index + 1],
+                attrib.normals[3 * index.normal_index + 2]
+            };
 
             if (uniqueVertices.count(vertex) == 0) {
                 uniqueVertices[vertex] = static_cast<uint32_t>(m_Vertices.size());
@@ -151,16 +150,9 @@ void Model::CreateIndexBuffer() {
 }
 
 UniformBufferObject Model::UpdateMVPMatrices(glm::mat4& viewMatrix) {
-    static auto startTime = std::chrono::high_resolution_clock::now();
-    auto currTime = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(currTime - startTime).count();
 
     UniformBufferObject ubo{};
 
-    ubo.model = glm::mat4(1.0f);
-    ubo.model = glm::translate(ubo.model, m_Translation);
-    ubo.model = glm::scale(ubo.model, m_Scale);
-    ubo.model = glm::rotate(ubo.model, time * glm::radians(10.0f), m_Rotation);
     ubo.view = viewMatrix;
     ubo.projection = glm::perspective(glm::radians(45.0f), m_Width / (float)m_Height, 0.1f, 10.0f);
     ubo.projection[1][1] *= -1; // flip sign of scaling vector
@@ -179,7 +171,10 @@ void Model::Cleanup() {
 }
 
 VkCommandBuffer* Model::Draw(uint32_t index, VkCommandBufferBeginInfo* beginInfo, VkPipelineLayout& pipelineLayout, glm::mat4& viewMatrix) {
-    UniformBufferObject ubo = UpdateMVPMatrices(viewMatrix);
+    static auto startTime = std::chrono::high_resolution_clock::now();
+    auto currTime = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(currTime - startTime).count();
+
     VkDeviceSize offsets = 0;
     // vkResetCommandBuffer(m_CommandBuffers[index], 0);
     vkBeginCommandBuffer(m_CommandBuffers[index], beginInfo);
@@ -188,8 +183,12 @@ VkCommandBuffer* Model::Draw(uint32_t index, VkCommandBufferBeginInfo* beginInfo
     vkCmdBindIndexBuffer(m_CommandBuffers[index], m_IndexBuffer, offsets, VK_INDEX_TYPE_UINT32);
     vkCmdBindDescriptorSets(m_CommandBuffers[index], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
                             0, 1, &m_DescriptorSets[index], 0, nullptr);
-    vkCmdPushConstants(m_CommandBuffers[index], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ubo), &ubo);
-    vkCmdDrawIndexed(m_CommandBuffers[index], m_Indices.size(), 1, 0, 0, 0);
+    for (auto& instance : m_Instances) {
+        UniformBufferObject ubo = UpdateMVPMatrices(viewMatrix);
+        ubo.model = instance.GetModelMatrix(time);
+        vkCmdPushConstants(m_CommandBuffers[index], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ubo), &ubo);
+        vkCmdDrawIndexed(m_CommandBuffers[index], m_Indices.size(), 1, 0, 0, 0);
+    }
     vkEndCommandBuffer(m_CommandBuffers[index]);
     return &m_CommandBuffers[index];
 }

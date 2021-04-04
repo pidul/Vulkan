@@ -8,9 +8,15 @@ struct UniformBufferObject {
     glm::mat4 projection;
 };
 
+struct LightsPositions {
+    glm::vec4 red;
+    glm::vec4 green;
+    glm::vec4 blue;
+};
+
 struct Vertex {
     glm::vec3 pos;
-    glm::vec3 color;
+    glm::vec3 normal;
     glm::vec2 texCoord;
 
     static VkVertexInputBindingDescription GetBindingDescription() {
@@ -33,7 +39,7 @@ struct Vertex {
             1,                                                      // location
             0,                                                      // binding
             VK_FORMAT_R32G32B32_SFLOAT,                             // format
-            offsetof(Vertex, color)                                 // offset
+            offsetof(Vertex, normal)                                 // offset
         };
         attributeDescriptions[2] = {
             2,                                                      // location
@@ -45,7 +51,7 @@ struct Vertex {
     }
 
     bool operator==(const Vertex& other) const {
-        return pos == other.pos && color == other.color && texCoord == other.texCoord;
+        return pos == other.pos && normal == other.normal && texCoord == other.texCoord;
     }
 };
 
@@ -53,7 +59,7 @@ namespace std {
     template<> struct hash<Vertex> {
         size_t operator()(Vertex const& vertex) const {
             return ((hash<glm::vec3>()(vertex.pos) ^
-                (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
+                (hash<glm::vec3>()(vertex.normal) << 1)) >> 1) ^
                 (hash<glm::vec2>()(vertex.texCoord) << 1);
         }
     };

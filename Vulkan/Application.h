@@ -32,6 +32,8 @@ public:
 private:
     std::vector<Model> m_Models;
     Camera m_Camera;
+    LightsPositions m_Lights;
+    bool m_IsFullscreen;
 
     bool framebufferResized = false;
     GLFWwindow* m_Window;

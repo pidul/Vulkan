@@ -24,7 +24,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
-#include <glm/gtx/perpendicular.hpp>
+#include <glm/gtx/normal.hpp>
 
 #include <iostream>
 #include <set>
