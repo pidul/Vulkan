@@ -35,5 +35,4 @@ void main() {
     outColor = (outColor * vec4(redIntensity, greenIntensity, blueIntensity, 1.0f)) + (ambientColor * outColor);
 
     outColor = 0.6 * outColor + 0.4 * fogColor;
-    outColor.w = 1.0;
 }
