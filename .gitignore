@@ -35,3 +35,5 @@
 Vulkan/x64/*
 *.ilk
 *.pdb
+*.iobj
+*.ipdb
