@@ -154,8 +154,8 @@ UniformBufferObject Model::UpdateMVPMatrices(glm::mat4& viewMatrix) {
     UniformBufferObject ubo{};
 
     ubo.view = viewMatrix;
-    ubo.projection = glm::perspective(glm::radians(45.0f), m_Width / (float)m_Height, 0.1f, 10.0f);
-    ubo.projection[1][1] *= -1; // flip sign of scaling vector
+    ubo.projection = glm::perspective(glm::radians(60.0f), m_Width / (float)m_Height, 0.1f, 20.0f);
+    ubo.projection[1][1] *= -1;
 
     return ubo;
 }
