@@ -187,7 +187,7 @@ VkCommandBuffer* Model::Draw(uint32_t index, VkCommandBufferBeginInfo* beginInfo
         UniformBufferObject ubo = UpdateMVPMatrices(viewMatrix);
         ubo.model = instance.GetModelMatrix(time);
         vkCmdPushConstants(m_CommandBuffers[index], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ubo), &ubo);
-        vkCmdDrawIndexed(m_CommandBuffers[index], m_Indices.size(), 1, 0, 0, 0);
+        vkCmdDrawIndexed(m_CommandBuffers[index], static_cast<uint32_t>(m_Indices.size()), 1, 0, 0, 0);
     }
     vkEndCommandBuffer(m_CommandBuffers[index]);
     return &m_CommandBuffers[index];
