@@ -33,6 +33,7 @@ private:
     std::vector<Model> m_Models;
     Camera m_Camera;
     LightsPositions m_Lights;
+    float m_LightsMoveX = 0.0f, m_LightsMoveY = 0.0f;
     bool m_IsFullscreen;
 
     bool framebufferResized = false;

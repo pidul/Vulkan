@@ -17,8 +17,11 @@ layout(push_constant) uniform constants {
 layout(location = 0) out vec4 outColor;
 
 void main() {
-    outColor = texture(texSampler, fragTexCoord);
-    
+    if (fragTexCoord.x < 3.0) {
+        outColor = vec4(fragColor, 1.0);
+    } else {
+        outColor = texture(texSampler, fragTexCoord);
+    }
     vec4 fogColor = vec4(0.2, 0.2, 0.2, 1.0);
     float fogFactor = 0.2;
 
@@ -32,7 +35,7 @@ void main() {
     float greenIntensity = clamp(dot(fragNormal, green), 0.0, 1.0);
     float blueIntensity = clamp(dot(fragNormal, blue), 0.0, 1.0);
 
-    outColor = (outColor * vec4(redIntensity, greenIntensity, blueIntensity, 1.0f)) + (ambientColor * outColor);
+    outColor = (outColor * vec4(redIntensity * 0.3, greenIntensity * 0.3, blueIntensity * 0.3, 1.0f)) + (ambientColor * outColor);
 
-    outColor = 0.6 * outColor + 0.4 * fogColor;
+    // outColor = 0.6 * outColor + 0.4 * fogColor;
 }

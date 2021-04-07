@@ -7,15 +7,18 @@
 #include <tiny_obj_loader.h>
 
 
-Model::Model(Application* mother, VkDevice& device, std::string modelFilename, std::string textureFilename) :
-        m_Mother(mother), m_Device(device), m_VertexBuffer(VK_NULL_HANDLE), m_IndexBuffer(VK_NULL_HANDLE),
-        m_VertexBufferMemory(VK_NULL_HANDLE), m_IndexBufferMemory(VK_NULL_HANDLE),
-        m_TextureImage(VK_NULL_HANDLE), m_TextureImageMemory(VK_NULL_HANDLE), m_TextureImageView(VK_NULL_HANDLE) {
-    LoadModel(modelFilename);
+Model::Model(Application* mother, std::vector<std::string> modelFilenames, std::string textureFilename) :
+    m_Mother(mother), m_Device(mother->m_Device), m_VertexBuffer(VK_NULL_HANDLE), m_IndexBuffer(VK_NULL_HANDLE),
+    m_VertexBufferMemory(VK_NULL_HANDLE), m_IndexBufferMemory(VK_NULL_HANDLE),
+    m_TextureImage(VK_NULL_HANDLE), m_TextureImageMemory(VK_NULL_HANDLE), m_TextureImageView(VK_NULL_HANDLE) {
+    for (const auto& modelFilename : modelFilenames) {
+        LoadModel(modelFilename);
+    }
     CreateTextureImage(textureFilename);
     CreateTextureImageView();
     CreateVertexBuffer();
     CreateIndexBuffer();
+    UpdateWindowSize(mother->m_SwapChainExtent.width, mother->m_SwapChainExtent.height);
 }
 
 void Model::UpdateWindowSize(uint32_t width, uint32_t height) {
@@ -77,7 +80,7 @@ void Model::LoadModel(std::string modelPath) {
 
     std::unordered_map<Vertex, uint32_t> uniqueVertices;
 
-    for (auto shape : shapes) {
+    for (auto& shape : shapes) {
         for (const auto& index : shape.mesh.indices) {
             Vertex vertex;
 
@@ -87,10 +90,15 @@ void Model::LoadModel(std::string modelPath) {
                 attrib.vertices[3 * index.vertex_index + 2]
             };
 
-            vertex.texCoord = {
-                attrib.texcoords[2 * index.texcoord_index + 0],
-                1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-            };
+            if (index.texcoord_index == -1) {
+                vertex.texCoord = { 0.0, 0.0 };
+            }
+            else {
+                vertex.texCoord = {
+                    attrib.texcoords[2 * index.texcoord_index + 0],
+                    1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+                };
+            }
             vertex.normal = {
                 attrib.normals[3 * index.normal_index + 0],
                 attrib.normals[3 * index.normal_index + 1],

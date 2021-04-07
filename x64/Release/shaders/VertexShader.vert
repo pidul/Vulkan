@@ -8,16 +8,21 @@ layout(push_constant) uniform constants {
 } ubo;
 
 layout(location = 0) in vec3 inPosition;
-layout(location = 1) in vec3 inColor;
+layout(location = 1) in vec3 inNormal;
 layout(location = 2) in vec2 inTexCoord;
 
 layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec2 fragTexCoord;
+layout(location = 2) out vec3 fragNormal;
+layout(location = 3) out vec3 fragCoord;
 
 void main() {
-    float ambientFactor = 1.0;
-    vec3 ambientLight = vec3(1.0f, 1.0f, 1.0f);
+    vec4 normal = ubo.model * vec4(inNormal, 1.0);
+    fragNormal = vec3(normalize(normal));
+
     gl_Position = ubo.projection * ubo.view * ubo.model * vec4(inPosition, 1.0);
-    fragColor = inColor * (ambientFactor * ambientLight);
     fragTexCoord = inTexCoord;
+
+
+    fragCoord = vec3(ubo.model * vec4(inPosition, 1.0));
 }

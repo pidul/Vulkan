@@ -35,6 +35,3 @@ const uint32_t DEFAULT_WIDTH = 800;
 const uint32_t DEFAULT_HEIGHT = 600;
 
 const uint32_t MAX_OBJECTS_ON_SCENE = 5;
-
-const std::string MODEL_PATH = "models/viking_room.obj";
-const std::string TEXTURE_PATH = "textures/viking_room.png";

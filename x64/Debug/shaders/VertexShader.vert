@@ -17,14 +17,17 @@ layout(location = 2) out vec3 fragNormal;
 layout(location = 3) out vec3 fragCoord;
 
 void main() {
-    float ambientFactor = 1.0;
-    vec3 ambientLight = vec3(1.0f, 1.0f, 1.0f);
+    if (inTexCoord.x < 3.0) {
+        fragColor = inNormal;
+        fragNormal = normalize(ubo.model * vec4(inPosition, 1.0)).xyz;
+    } else {
+        vec4 normal = ubo.model * vec4(inNormal, 1.0);
+        fragNormal = vec3(normalize(normal));
+    }
+
     gl_Position = ubo.projection * ubo.view * ubo.model * vec4(inPosition, 1.0);
-    fragColor = (ambientFactor * ambientLight);
     fragTexCoord = inTexCoord;
 
-    vec4 normal = ubo.model * vec4(inNormal, 1.0);
-    fragNormal = vec3(normalize(normal));
 
     fragCoord = vec3(ubo.model * vec4(inPosition, 1.0));
 }

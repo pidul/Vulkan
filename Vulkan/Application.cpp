@@ -9,15 +9,23 @@ void Application::Run() {
     m_Lights.red = glm::vec4(std::cos(0), std::sin(0), 1.0f, 1.0f);
     m_Lights.green = glm::vec4(std::cos(M_PI / 180 * 120), std::sin(M_PI / 180 * 120), 1.0f, 1.0f);
     m_Lights.blue = glm::vec4(std::cos(M_PI / 180 * 240), std::sin(M_PI / 180 * 240), 1.0f, 1.0f);
-    Model tavern(this, m_Device, MODEL_PATH, TEXTURE_PATH);
-    tavern.UpdateWindowSize(m_SwapChainExtent.width, m_SwapChainExtent.height);
-    tavern.AddInstance(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f), false);
-    Model cube(this, m_Device, "models/cube.obj", "textures/texture.jpg");
-    cube.UpdateWindowSize(m_SwapChainExtent.width, m_SwapChainExtent.height);
-    cube.AddInstance(glm::vec3(1.5f, 1.5f, 0.0f), glm::vec3(0.2f, 0.2f, 0.2f), glm::vec3(0.0f, 1.0f, 0.0f), false);
+    Model tavern(this, { "models/viking_room.obj" }, "textures/viking_room.png");
+    tavern.AddInstance(glm::vec3(-1.0f, -1.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f), false);
+    Model cube(this, { "models/cube.obj" }, "textures/texture.jpg");
     cube.AddInstance(m_Lights.red, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(0.0f, 0.0f, 1.0f), true);
     cube.AddInstance(m_Lights.blue, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(0.0f, 0.0f, 1.0f), true);
     cube.AddInstance(m_Lights.green, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(0.0f, 0.0f, 1.0f), true);
+
+
+    Model skull(this, { "models/skull.obj", "models/jaw.obj", "models/teethUpper.obj", "models/teethLower.obj" }, "textures/dummy.png");
+    skull.AddInstance(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    m_Models.push_back(skull);
+
+    Model helmets(this, { "models/helmets.obj" }, "textures/dummy.png");
+    helmets.AddInstance(glm::vec3(0.0f, 0.0f, 0.5f), glm::vec3(0.2f, 0.2f, 0.2f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    m_Models.push_back(helmets);
+
+
     m_Models.push_back(tavern);
     m_Models.push_back(cube);
     m_Camera.m_Position = glm::vec3(3.0f, 3.0f, 1.0f);
@@ -485,9 +493,9 @@ void Application::InitWindow() {
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    m_IsFullscreen = true;
+    m_IsFullscreen = false;
     const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-    m_Window = glfwCreateWindow(mode->width, mode->height, "Vulkan for PIZI 2021", glfwGetPrimaryMonitor(), nullptr);
+    m_Window = glfwCreateWindow(DEFAULT_WIDTH, DEFAULT_HEIGHT, "Vulkan for PIZI 2021", nullptr, nullptr);
     glfwSetWindowUserPointer(m_Window, this);
     glfwSetKeyCallback(m_Window, KeyboardInputCallback);
     glfwSetCursorPosCallback(m_Window, MouseInputCallback);
@@ -980,7 +988,8 @@ void Application::RecordCommandBuffers(uint32_t index) {
     }
 
     std::array<VkClearValue, 2> clearColors = {};
-    clearColors[0] = { 0.2f, 0.2f, 0.2f, 1.0f };
+    // clearColors[0] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    clearColors[0] = { 0.1f, 0.1f, 0.1f, 1.0f };
     clearColors[1] = { 1.0f, 0 };
 
     VkRenderPassBeginInfo renderPassBeginInfo = {
@@ -997,7 +1006,8 @@ void Application::RecordCommandBuffers(uint32_t index) {
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currTime - startTime).count();
     glm::mat4 viewMatrix = m_Camera.GetViewMatrix();
 
-    glm::mat4 lightsRotation = glm::rotate(glm::mat4(1.0f), time * 1.0f, glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::mat4 lightsTranslation = glm::translate(glm::mat4(1.0f), glm::vec3(m_LightsMoveX, m_LightsMoveY, 0.0f));
+    glm::mat4 lightsRotation = glm::rotate(lightsTranslation, time * 1.0f, glm::vec3(0.0f, 0.0f, 1.0f));
     LightsPositions lp;
     lp.red = lightsRotation * m_Lights.red, 1.0f;
     lp.green = lightsRotation * m_Lights.green, 1.0f;
@@ -1069,6 +1079,39 @@ void Application::KeyboardInputCallback(GLFWwindow* window, int key, int scancod
         app->m_Lights.red.z -= 0.1f;
         app->m_Lights.green.z -= 0.1f;
         app->m_Lights.blue.z -= 0.1f;
+    }
+    static float radius = 1.0f;
+    bool updateLights = false;
+    state = glfwGetKey(window, GLFW_KEY_RIGHT);
+    if (state == GLFW_PRESS) {
+        updateLights = true;
+        radius += 0.1f;
+    }
+    state = glfwGetKey(window, GLFW_KEY_LEFT);
+    if (state == GLFW_PRESS) {
+        updateLights = true;
+        radius -= 0.1f;
+    }
+    state = glfwGetKey(window, GLFW_KEY_J);
+    if (state == GLFW_PRESS) {
+        app->m_LightsMoveX-= 0.1f;
+    }
+    state = glfwGetKey(window, GLFW_KEY_L);
+    if (state == GLFW_PRESS) {
+        app->m_LightsMoveX += 0.1f;
+    }
+    state = glfwGetKey(window, GLFW_KEY_I);
+    if (state == GLFW_PRESS) {
+        app->m_LightsMoveY += 0.1f;
+    }
+    state = glfwGetKey(window, GLFW_KEY_K);
+    if (state == GLFW_PRESS) {
+        app->m_LightsMoveY -= 0.1f;
+    }
+    if (updateLights) {
+        app->m_Lights.red =   glm::vec4(radius * std::cos(0), radius * std::sin(0), app->m_Lights.red.z, 1.0f);
+        app->m_Lights.green = glm::vec4(radius * std::cos(M_PI / 180 * 120), radius * std::sin(M_PI / 180 * 120), app->m_Lights.green.z, 1.0f);
+        app->m_Lights.blue =  glm::vec4(radius * std::cos(M_PI / 180 * 240), radius * std::sin(M_PI / 180 * 240), app->m_Lights.red.z, 1.0f);
     }
 }
 

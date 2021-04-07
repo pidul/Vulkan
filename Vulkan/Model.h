@@ -8,7 +8,7 @@ class Application;
 class Model {
     friend class Application;
 public:
-    Model(Application* mother, VkDevice& device, std::string modelFilename, std::string textureFilename);
+    Model(Application* mother, std::vector<std::string> modelFilenames, std::string textureFilename);
     void Cleanup();
     void UpdateWindowSize(uint32_t width, uint32_t height);
 
@@ -44,7 +44,7 @@ private:
             }
             else {
                 mat = glm::translate(mat, m_Translation);
-                // mat = glm::rotate(mat, time * glm::radians(10.0f), m_Rotation);
+                mat = glm::rotate(mat, /*time * */glm::radians(90.0f), m_Rotation);
                 mat = glm::scale(mat, m_Scale);
             }
             return mat;
