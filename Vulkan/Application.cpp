@@ -6,30 +6,33 @@
 void Application::Run() {
     InitWindow();
     InitVulkan();
-    m_Lights.red = glm::vec4(std::cos(0), std::sin(0), 1.0f, 1.0f);
-    m_Lights.green = glm::vec4(std::cos(M_PI / 180 * 120), std::sin(M_PI / 180 * 120), 1.0f, 1.0f);
-    m_Lights.blue = glm::vec4(std::cos(M_PI / 180 * 240), std::sin(M_PI / 180 * 240), 1.0f, 1.0f);
-    Model tavern(this, { "models/viking_room.obj" }, "textures/viking_room.png");
+    m_Lights.red = glm::vec4( std::cos(M_PI / 180 * -40), std::sin(M_PI / 180 * -40), 0.8f, 1.0f);
+    m_Lights.green = glm::vec4(std::cos(M_PI / 180 * 220), std::sin(M_PI / 180 * 220), 0.8f, 1.0f);
+    m_Lights.blue = glm::vec4(std::cos(/*M_PI / 180 * 240 */0), std::sin(/*M_PI / 180 * 240*/ 0), 2.0f, 1.0f);
+    /*Model tavern(this, { "models/viking_room.obj" }, "textures/viking_room.png");
     tavern.AddInstance(glm::vec3(-1.0f, -1.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f), false);
-    Model cube(this, { "models/cube.obj" }, "textures/texture.jpg");
-    cube.AddInstance(m_Lights.red, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(0.0f, 0.0f, 1.0f), true);
-    cube.AddInstance(m_Lights.blue, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(0.0f, 0.0f, 1.0f), true);
-    cube.AddInstance(m_Lights.green, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(0.0f, 0.0f, 1.0f), true);
+    m_Models.push_back(tavern);*/
+    //Model cube(this, { "models/cube.obj" }, "textures/texture.jpg");
+    //cube.AddInstance(m_Lights.red, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(0.0f, 0.0f, 1.0f), false);
+    ///*cube.AddInstance(m_Lights.blue, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(0.0f, 0.0f, 1.0f), true);
+    //cube.AddInstance(m_Lights.green, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(0.0f, 0.0f, 1.0f), true);*/
+    //m_Models.push_back(cube);
 
+    Model sphere(this, { "models/sphere.obj" }, "textures/dummy.png");
+    sphere.AddInstance(m_Lights.red, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    sphere.AddInstance(m_Lights.green, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    m_Models.push_back(sphere);
 
     Model skull(this, { "models/skull.obj", "models/jaw.obj", "models/teethUpper.obj", "models/teethLower.obj" }, "textures/dummy.png");
-    skull.AddInstance(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    skull.AddInstance(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
     m_Models.push_back(skull);
 
-    Model helmets(this, { "models/helmets.obj" }, "textures/dummy.png");
+    /*Model helmets(this, { "models/helmets.obj" }, "textures/dummy.png");
     helmets.AddInstance(glm::vec3(0.0f, 0.0f, 0.5f), glm::vec3(0.2f, 0.2f, 0.2f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    m_Models.push_back(helmets);
+    m_Models.push_back(helmets);*/
 
-
-    m_Models.push_back(tavern);
-    m_Models.push_back(cube);
-    m_Camera.m_Position = glm::vec3(3.0f, 3.0f, 1.0f);
-    m_Camera.m_LookAt = glm::vec3(0.0f, 0.0f, 0.0f);
+    m_Camera.m_Position = glm::vec3(0.0f, -1.5f, 1.0f);
+    m_Camera.m_LookAt = glm::vec3(0.0f, 0.0f, 0.8f);
     MainLoop();
     Cleanup();
 }
@@ -988,8 +991,8 @@ void Application::RecordCommandBuffers(uint32_t index) {
     }
 
     std::array<VkClearValue, 2> clearColors = {};
-    // clearColors[0] = { 0.0f, 0.0f, 0.0f, 1.0f };
-    clearColors[0] = { 0.1f, 0.1f, 0.1f, 1.0f };
+    clearColors[0] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    // clearColors[0] = { 0.1f, 0.1f, 0.1f, 1.0f };
     clearColors[1] = { 1.0f, 0 };
 
     VkRenderPassBeginInfo renderPassBeginInfo = {
@@ -1009,15 +1012,17 @@ void Application::RecordCommandBuffers(uint32_t index) {
     glm::mat4 lightsTranslation = glm::translate(glm::mat4(1.0f), glm::vec3(m_LightsMoveX, m_LightsMoveY, 0.0f));
     glm::mat4 lightsRotation = glm::rotate(lightsTranslation, time * 1.0f, glm::vec3(0.0f, 0.0f, 1.0f));
     LightsPositions lp;
-    lp.red = lightsRotation * m_Lights.red, 1.0f;
-    lp.green = lightsRotation * m_Lights.green, 1.0f;
-    lp.blue = lightsRotation * m_Lights.blue, 1.0f;
+    lp.red = lightsRotation * m_Lights.red;
+    lp.green = lightsRotation * m_Lights.green;
+    //lp.blue = glm::vec4(m_Camera.m_Position, 1.0f);
+    m_Models[0].UpdateLightPosition(0, lp.red);
+    m_Models[0].UpdateLightPosition(1, lp.green);
 
     vkCmdBeginRenderPass(m_CommandBuffers[index], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
 
-    vkCmdPushConstants(m_CommandBuffers[index], m_GraphicsPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(UniformBufferObject), sizeof(lp), &lp);
+    
     for (auto& model : m_Models) {
-        VkCommandBuffer* secondaryCmdBuffer = model.Draw(index, &secondaryCmdBuffBeginInfo, m_GraphicsPipelineLayout, viewMatrix);
+        VkCommandBuffer* secondaryCmdBuffer = model.Draw(index, &secondaryCmdBuffBeginInfo, m_GraphicsPipelineLayout, viewMatrix, lp);
 
         vkCmdExecuteCommands(m_CommandBuffers[index], 1, secondaryCmdBuffer);
     }
@@ -1278,9 +1283,7 @@ void Application::PickPhysicalDevice() {
 
     auto isDeviceSuitable = [&](const VkPhysicalDevice& physicalDevice) {
         VkPhysicalDeviceProperties deviceProperties;
-        VkPhysicalDeviceFeatures deviceFeatures;
         vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
-        vkGetPhysicalDeviceFeatures(physicalDevice, &deviceFeatures);
 
         QueueFamilyIndices indice = findQueueFamilies(physicalDevice);
 

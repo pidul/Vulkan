@@ -25,7 +25,11 @@ public:
         m_Instances.push_back(instance);
     }
 
-    VkCommandBuffer* Draw(uint32_t index, VkCommandBufferBeginInfo* beginInfo, VkPipelineLayout& pipelineLayout, glm::mat4& viewMatrix);
+    VkCommandBuffer* Draw(uint32_t index, VkCommandBufferBeginInfo* beginInfo, VkPipelineLayout& pipelineLayout, glm::mat4& viewMatrix, LightsPositions lp);
+
+    void UpdateLightPosition(uint32_t index, glm::vec4 position) {
+        m_Instances[index].UpdatePosition(position);
+    }
 
 private:
     class Instance {
@@ -48,6 +52,9 @@ private:
                 mat = glm::scale(mat, m_Scale);
             }
             return mat;
+        }
+        void UpdatePosition(glm::vec4 position) {
+            m_Translation = position;
         }
     };
 
@@ -80,5 +87,4 @@ private:
     void LoadModel(std::string);
     void CreateVertexBuffer();
     void CreateIndexBuffer();
-    UniformBufferObject UpdateMVPMatrices(glm::mat4& viewMatrix);
 };
