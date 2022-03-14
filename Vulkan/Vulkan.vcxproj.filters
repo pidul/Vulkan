@@ -27,6 +27,12 @@
     <ClCompile Include="Camera.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="VulkanFactory.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Skybox.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
@@ -44,12 +50,24 @@
     <ClInclude Include="Camera.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Skybox.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="VulkanFactory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\FragmentShader.frag">
       <Filter>Resource Files</Filter>
     </None>
     <None Include="shaders\VertexShader.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\SkyboxFragmentShader.frag">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\SkyboxVertexShader.vert">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>

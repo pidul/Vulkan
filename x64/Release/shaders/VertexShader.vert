@@ -17,12 +17,9 @@ layout(location = 2) out vec3 fragNormal;
 layout(location = 3) out vec3 fragCoord;
 
 void main() {
-    vec4 normal = ubo.model * vec4(inNormal, 1.0);
-    fragNormal = vec3(normalize(normal));
-
     gl_Position = ubo.projection * ubo.view * ubo.model * vec4(inPosition, 1.0);
     fragTexCoord = inTexCoord;
 
-
+    fragNormal = normalize(mat3(transpose(inverse(ubo.model))) * inNormal);
     fragCoord = vec3(ubo.model * vec4(inPosition, 1.0));
 }

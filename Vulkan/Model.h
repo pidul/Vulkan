@@ -1,16 +1,15 @@
 #pragma once
 #include "CommonHeaders.h"
 #include "Vertex.h"
-#include "Application.h"
+#include "VulkanFactory.h"
 
 class Application;
 
 class Model {
-    friend class Application;
 public:
-    Model(Application* mother, std::vector<std::string> modelFilenames, std::string textureFilename);
+    Model(std::vector<std::string> modelFilenames, std::string textureFilename);
     void Cleanup();
-    void UpdateWindowSize(uint32_t width, uint32_t height);
+    void UpdateWindowSize();
 
     VkCommandBuffer GetCommandBuffer(uint32_t index) {
         return m_CommandBuffers[index];
@@ -25,7 +24,7 @@ public:
         m_Instances.push_back(instance);
     }
 
-    VkCommandBuffer* Draw(uint32_t index, VkCommandBufferBeginInfo* beginInfo, VkPipelineLayout& pipelineLayout, glm::mat4& viewMatrix, LightsPositions lp);
+    VkCommandBuffer* Draw(uint32_t index, VkCommandBufferBeginInfo* beginInfo, glm::mat4& viewMatrix, LightsPositions lp);
 
     void UpdateLightPosition(uint32_t index, glm::vec4 position) {
         m_Instances[index].UpdatePosition(position);
@@ -59,12 +58,9 @@ private:
     };
 
     std::vector<Instance> m_Instances;
-
-    Application* m_Mother;
+    VulkanFactory* m_VkFactory;
 
     uint32_t m_Width, m_Height;
-
-    VkDevice& m_Device;
 
     std::vector<VkCommandBuffer> m_CommandBuffers;
 
