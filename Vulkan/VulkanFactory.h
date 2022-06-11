@@ -44,18 +44,13 @@ private:
     VkDeviceMemory m_DepthImageMemory;
     VkImageView m_DepthImageView;
 
-    VkSampler m_TextureSampler;
     VkCommandPool m_CommandPool;
     std::vector<VkCommandBuffer> m_CommandBuffers;
     VkRenderPass m_RenderPass;
 
     std::vector<VkSemaphore> m_ImageReadySemaphores;
     std::vector<VkSemaphore> m_RenderFinishedSemaphores;
-
-    VkDescriptorSetLayout m_DescriptorSetLayout;
-    VkPipelineLayout m_GraphicsPipelineLayout;
-    VkPipeline m_GraphicsPipeline;
-    VkDescriptorPool m_DescriptorPool;
+    std::vector<VkFence> m_CmdBuffFreeFences;
 
 private:
     VulkanFactory() {};
@@ -68,8 +63,6 @@ private:
     void CreateSwapChain();
     void CreateSwapchainImageViews();
     void CreateFramebuffers();
-    void CreateDescriptorSetLayout();
-    void CreateGraphicsPipeline();
 
     void CreateCommandPool();
     void AllocateCommandBuffers();
@@ -81,9 +74,7 @@ private:
 
     VkCommandBuffer BeginSingleTimeCommands();
     void EndSingleTimeCommands(VkCommandBuffer buffer);
-    void CreateTextureSampler();
     void CreateSemaphores();
-    void CreateDescriptorPool();
 public:
     ~VulkanFactory();
     VulkanFactory(VulkanFactory& other) = delete;
@@ -102,32 +93,33 @@ public:
     void CleanupSwapChain();
     void Cleanup();
 
-    void CreateDescriptorSets(std::vector<VkDescriptorSet>& descriptorSets, VkImageView& textureImageView);
+    void CreateDescriptorSets(std::vector<VkDescriptorSet>& descriptorSets, VkImageView& textureImageView, VkSampler& textureSampler, VkDescriptorSetLayout& layout, VkDescriptorPool& pool);
     void AllocateSecondaryCommandBuffer(std::vector<VkCommandBuffer>& cmdBuffer);
     void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& memory);
     void CopyBuffer(VkBuffer& srcBuffer, VkBuffer& dstBuffer, VkDeviceSize size);
     void CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
-        VkMemoryPropertyFlags properties, VkImage& img, VkDeviceMemory& imgMem, uint32_t arrayLayers);
-    void TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
-    void CopyBufferToImage(VkBuffer& srcBuffer, VkImage dstImage, uint32_t width, uint32_t height);
-    VkImageView CreateImageView(VkImage img, VkFormat format, VkImageAspectFlags aspectMask);
+        VkMemoryPropertyFlags properties, VkImage& img, VkDeviceMemory& imgMem, uint32_t arrayLayers, uint32_t flags = 0);
+    void TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount);
+    void CopyBufferToImage(VkBuffer& srcBuffer, VkImage dstImage, uint32_t width, uint32_t height, uint32_t faceNo);
+    VkImageView CreateImageView(VkImage img, VkFormat format, VkImageAspectFlags aspectMask, VkImageViewType viewType, uint32_t facesCount);
+    void CreateDescriptorSetLayout(std::vector<VkDescriptorSetLayoutBinding>& bindings, VkDescriptorSetLayout& descriptorSetLayout);
+    void CreateDescriptorPool(std::vector<VkDescriptorPoolSize>& poolSizes, VkDescriptorPool& descriptorPool);
+    void CreateShaderModule(VkShaderModule& shaderModule, const std::string& shaderFilename);
+    void CreateGraphicsPipelineLayout(std::vector<VkDescriptorSetLayout>& descriptorSetLayouts, std::vector<VkPushConstantRange>& pushConstantRanges,
+                                        VkPipelineLayout& pipelineLayout);
+    void CreateGraphicsPipeline(std::vector<VkPipelineShaderStageCreateInfo>& shaderStages, VkPipelineVertexInputStateCreateInfo& vertexInput,
+                                VkPipelineLayout& pipelineLayout, VkPipeline& graphicsPipeline, uint32_t culling, uint32_t depthEnabled);
+    void CreateTextureSampler(VkSampler& textureSampler);
 
     VkRenderPass& GetRenderPass() { return m_RenderPass; }
     VkFramebuffer& GetFramebuffer(uint32_t index) { return m_SwapChainFramebuffers[index]; }
-    VkPipeline& GetGraphicsPipeline() { return m_GraphicsPipeline; }
-    VkPipelineLayout& GetPipelineLayout() { return m_GraphicsPipelineLayout; }
     VkCommandBuffer& GetCommandBuffer(uint32_t index) { return m_CommandBuffers[index]; }
     VkSemaphore& GetImageReadySemaphore(uint32_t index) { return m_ImageReadySemaphores[index]; }
     VkSemaphore& GetRenderFinishedSemaphore(uint32_t index) { return m_RenderFinishedSemaphores[index]; }
-    //const VkInstance& GetVkInstance() { return m_VkInstance; }
-    //VkSurfaceKHR& GetVkSurface() { return m_Surface; }
-    //VkPhysicalDevice& GetPhysicalDevice() { return m_PhysicalDevice; }
-    //QueueFamilyIndices& GetQueueFamilyIndice() { return m_QueueFamilyIndice; }
     VkDevice& GetDevice() { return m_Device; }
     VkQueue& GetQueue() { return m_Queue; }
     VkExtent2D& GetExtent() { return m_SwapChainExtent; }
-    //VkFormat GetFormat() { return m_SwapChainImageFormat; }
     std::vector<VkImage>& GetSwapchainImages() { return m_SwapChainImages; }
-    //std::vector<VkImageView>& GetSwapchainImageViews() { return m_SwapChainImageViews; }
     VkSwapchainKHR& GetSwapchain() { return m_SwapChain; }
+    VkFence& GetCmdBuffFence(uint32_t index) { return m_CmdBuffFreeFences[index]; }
 };

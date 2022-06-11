@@ -2,29 +2,20 @@
 #include "CommonHeaders.h"
 #include "Vertex.h"
 #include "VulkanFactory.h"
+#include "Interfaces.h"
 
 class Application;
 
-class Skybox {
-    friend class Application;
+class Skybox : public DrawableInterface {
 public:
     Skybox();
-    void Cleanup();
-    void UpdateWindowSize();
+    void Cleanup() override;
+    void UpdateLightPosition(uint32_t, glm::vec4) { assert(0); };
+    void UpdateWindowSize() override;
 
-    VkCommandBuffer GetCommandBuffer(uint32_t index) {
-        return m_CommandBuffers[index];
-    }
-
-    uint32_t GetIndicesCount() {
-        return static_cast<uint32_t>(m_Indices.size());
-    }
-
-    VkCommandBuffer* Draw(uint32_t index, VkCommandBufferBeginInfo* beginInfo);
+    VkCommandBuffer* Draw(uint32_t index, VkCommandBufferBeginInfo* beginInfo, glm::mat4& viewMatrix, LightsPositions lp) override;
 
 private:
-    glm::vec3 m_Rotation;
-
     VulkanFactory* m_VkFactory;
 
     uint32_t m_Width, m_Height;
@@ -36,23 +27,31 @@ private:
     VkDeviceMemory m_VertexBufferMemory;
     VkDeviceMemory m_IndexBufferMemory;
 
+    VkDescriptorSetLayout m_DescriptorSetLayout;
+    VkDescriptorPool m_DescriptorPool;
     std::vector<VkDescriptorSet> m_DescriptorSets;
     VkImage m_TextureImage;
     VkDeviceMemory m_TextureImageMemory;
     VkImageView m_TextureImageView;
+    VkSampler m_TextureSampler;
 
     std::vector<Vertex> m_Vertices;
 
     std::vector<uint32_t> m_Indices;
+
+    VkPipelineLayout m_GraphicsPipelineLayout;
+    VkPipeline m_GraphicsPipeline;
 
     void CreateTextureImage(std::vector<std::string>);
     void CreateTextureImageView();
     void LoadModel();
     void CreateVertexBuffer();
     void CreateIndexBuffer();
-    glm::mat4 GetModelMatrix(float time) {
-        glm::mat4 mat(1.0f);
-        mat = glm::rotate(mat, time * glm::radians(10.0f), m_Rotation);
+    void CreateDescriptorSetLayout();
+    void CreateDescriptorPool();
+    void CreateGraphicsPipeline();
+    glm::mat4 GetModelMatrix() {
+        static glm::mat4 mat(1.0f);
         return mat;
     }
 };

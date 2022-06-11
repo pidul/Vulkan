@@ -10,41 +10,47 @@ void Application::Run() {
     m_Lights.green = glm::vec4(std::cos(M_PI / 180 * 220), std::sin(M_PI / 180 * 220), 0.8f, 1.0f);
     m_Lights.blue = glm::vec4(std::cos(/*M_PI / 180 * 240 */0), std::sin(/*M_PI / 180 * 240*/ 0), 2.0f, 1.0f);
 
+    Skybox skybox;
+    m_Models.push_back(&skybox);
+
     Model sphere({ "models/sphere.obj" }, "textures/dummy.png");
     sphere.AddInstance(m_Lights.red, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(1.0f, 0.0f, 0.0f), false);
     sphere.AddInstance(m_Lights.green, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(1.0f, 0.0f, 0.0f), false);
     //sphere.AddInstance(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    m_Models.push_back(sphere);
+    m_Models.push_back(&sphere);
 
     /*Model tavern({ "models/viking_room.obj" }, "textures/viking_room.png");
     tavern.AddInstance(glm::vec3(-1.0f, -1.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f), false);
-    m_Models.push_back(tavern);*/
+    m_Models.push_back(&tavern);*/
     //Model cube({ "models/cube.obj" }, "textures/texture.jpg");
     //cube.AddInstance(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(0.0f, 0.0f, 1.0f), false);
     ///*cube.AddInstance(m_Lights.blue, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(0.0f, 0.0f, 1.0f), true);
     //cube.AddInstance(m_Lights.green, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(0.0f, 0.0f, 1.0f), true);*/
-    //m_Models.push_back(cube);
+    ReflectiveModel cube({ "models/cube.obj" });
+    cube.AddInstance(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(0.0f, 0.0f, 1.0f), false);
+    m_Models.push_back(&cube);
 
-    Model skull({ "models/skull.obj", "models/jaw.obj", "models/teethUpper.obj", "models/teethLower.obj" }, "textures/dummy.png");
-    skull.AddInstance(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    skull.AddInstance(glm::vec3(1.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    skull.AddInstance(glm::vec3(2.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    skull.AddInstance(glm::vec3(3.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    skull.AddInstance(glm::vec3(-1.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    skull.AddInstance(glm::vec3(-2.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    skull.AddInstance(glm::vec3(-3.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    skull.AddInstance(glm::vec3(0.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    skull.AddInstance(glm::vec3(1.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    skull.AddInstance(glm::vec3(2.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    skull.AddInstance(glm::vec3(3.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    skull.AddInstance(glm::vec3(-1.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    skull.AddInstance(glm::vec3(-2.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    skull.AddInstance(glm::vec3(-3.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    m_Models.push_back(skull);
+    //Model skull({ "models/skull.obj", "models/jaw.obj", "models/teethUpper.obj", "models/teethLower.obj" }, "textures/dummy.png");
+    //ReflectiveModel skull({ "models/skull.obj", "models/jaw.obj", "models/teethUpper.obj", "models/teethLower.obj" });
+    //skull.AddInstance(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    //skull.AddInstance(glm::vec3(1.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    //skull.AddInstance(glm::vec3(2.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    //skull.AddInstance(glm::vec3(3.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    //skull.AddInstance(glm::vec3(-1.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    //skull.AddInstance(glm::vec3(-2.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    //skull.AddInstance(glm::vec3(-3.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    //skull.AddInstance(glm::vec3(0.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    //skull.AddInstance(glm::vec3(1.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    //skull.AddInstance(glm::vec3(2.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    //skull.AddInstance(glm::vec3(3.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    //skull.AddInstance(glm::vec3(-1.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    //skull.AddInstance(glm::vec3(-2.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    //skull.AddInstance(glm::vec3(-3.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    //m_Models.push_back(&skull);
 
     /*Model helmets({ "models/helmets.obj" }, "textures/dummy.png");
     helmets.AddInstance(glm::vec3(0.0f, 0.0f, 0.5f), glm::vec3(0.2f, 0.2f, 0.2f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    m_Models.push_back(helmets);*/
+    m_Models.push_back(&helmets);*/
 
     m_Camera.m_Position = glm::vec3(0.0f, -1.5f, 1.0f);
     m_Camera.m_LookAt = glm::vec3(0.0f, 0.0f, 0.8f);
@@ -62,7 +68,7 @@ void Application::RecreateSwapChain() {
 
     m_VkFactory->RecreateSwapChain();
     for (auto& model : m_Models) {
-        model.UpdateWindowSize();
+        model->UpdateWindowSize();
     }
 }
 
@@ -111,7 +117,7 @@ void Application::RecordCommandBuffers(uint32_t index) {
         nullptr                                                     // pInheritanceInfo
     };
 
-    // vkResetCommandBuffer(m_VkFactory->GetCommandBuffer(index), 0);
+    vkResetCommandBuffer(m_VkFactory->GetCommandBuffer(index), 0);
     if (vkBeginCommandBuffer(m_VkFactory->GetCommandBuffer(index), &primaryCmdBuffbeginInfo) != VK_SUCCESS) {
         throw std::runtime_error("cannot begin command buffer");
     }
@@ -141,14 +147,12 @@ void Application::RecordCommandBuffers(uint32_t index) {
     lp.red = /*lightsRotation **/ m_Lights.red;
     lp.green = /*lightsRotation **/ m_Lights.green;
     lp.blue = glm::vec4(m_Camera.m_Position, 1.0f);
-    m_Models[0].UpdateLightPosition(0, lp.red);
-    m_Models[0].UpdateLightPosition(1, lp.green);
+    m_Models[1]->UpdateLightPosition(0, lp.red);
+    m_Models[1]->UpdateLightPosition(1, lp.green);
 
     vkCmdBeginRenderPass(m_VkFactory->GetCommandBuffer(index), &renderPassBeginInfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
-
-    
     for (auto& model : m_Models) {
-        VkCommandBuffer* secondaryCmdBuffer = model.Draw(index, &secondaryCmdBuffBeginInfo, viewMatrix, lp);
+        VkCommandBuffer* secondaryCmdBuffer = model->Draw(index, &secondaryCmdBuffBeginInfo, viewMatrix, lp);
 
         vkCmdExecuteCommands(m_VkFactory->GetCommandBuffer(index), 1, secondaryCmdBuffer);
     }
@@ -252,18 +256,18 @@ void Application::MouseInputCallback(GLFWwindow* window, double xpos, double ypo
     double dY = ypos - prevY;
     prevX = xpos; prevY = ypos;
     auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
-    //if (dX < 0) {
-    //    app->m_Camera.MoveTarget(MoveDirection::left);
-    //} else if (dX > 0) {
-    //    app->m_Camera.MoveTarget(MoveDirection::right);
-    //}
-    //
-    //if (dY < 0) {
-    //    app->m_Camera.MoveTarget(MoveDirection::down);
-    //}
-    //else if (dY > 0) {
-    //    app->m_Camera.MoveTarget(MoveDirection::up);
-    //}
+    if (dX < 0) {
+        app->m_Camera.MoveTarget(MoveDirection::left);
+    } else if (dX > 0) {
+        app->m_Camera.MoveTarget(MoveDirection::right);
+    }
+    
+    if (dY < 0) {
+        app->m_Camera.MoveTarget(MoveDirection::down);
+    }
+    else if (dY > 0) {
+        app->m_Camera.MoveTarget(MoveDirection::up);
+    }
 }
 
 void Application::MainLoop() {
@@ -271,7 +275,6 @@ void Application::MainLoop() {
         glfwPollEvents();
         DrawFrame();
     }
-    vkDeviceWaitIdle(m_VkFactory->GetDevice());
 }
 
 void Application::DrawFrame() {
@@ -279,9 +282,12 @@ void Application::DrawFrame() {
     uint32_t imageIndex;
     static uint32_t semaphoreIndex = 0;
     semaphoreIndex = ++semaphoreIndex % m_VkFactory->GetSwapchainImages().size();
-    VkSemaphore imageReadySemaphore = m_VkFactory->GetImageReadySemaphore(semaphoreIndex);
+    VkSemaphore& imageReadySemaphore = m_VkFactory->GetImageReadySemaphore(semaphoreIndex);
     result = vkAcquireNextImageKHR(m_VkFactory->GetDevice(), m_VkFactory->GetSwapchain(), UINT64_MAX, imageReadySemaphore, VK_NULL_HANDLE, &imageIndex);
     
+    static uint32_t frameCount = 0;
+    //std::cout << "frame: " << frameCount++ << "\n";
+
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         RecreateSwapChain();
         return;
@@ -293,6 +299,10 @@ void Application::DrawFrame() {
     VkSemaphore waitSemaphores[] = { imageReadySemaphore };
     VkSemaphore signalSemaphores[] = { m_VkFactory->GetRenderFinishedSemaphore(semaphoreIndex) };
     VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+
+    if (vkWaitForFences(m_VkFactory->GetDevice(), 1, &m_VkFactory->GetCmdBuffFence(imageIndex), VK_TRUE, 100000000) == VK_TIMEOUT) {
+        std::cout << "vkWaitForFences timeouted!\n";
+    }
 
     RecordCommandBuffers(imageIndex);
     VkSubmitInfo submitInfo = {
@@ -306,7 +316,8 @@ void Application::DrawFrame() {
         1,                                                          // signalSemaphoreCount
         signalSemaphores                                            // pSignalSemaphores
     };
-    if (vkQueueSubmit(m_VkFactory->GetQueue(), 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+    vkResetFences(m_VkFactory->GetDevice(), 1, &m_VkFactory->GetCmdBuffFence(imageIndex));
+    if (vkQueueSubmit(m_VkFactory->GetQueue(), 1, &submitInfo, m_VkFactory->GetCmdBuffFence(imageIndex)) != VK_SUCCESS) {
         throw std::runtime_error("queue submit failed");
     }
 
@@ -336,7 +347,7 @@ void Application::Cleanup() {
     m_VkFactory->CleanupSwapChain();
 
     for (auto& model : m_Models) {
-        model.Cleanup();
+        model->Cleanup();
     }
 
     m_VkFactory->Cleanup();

@@ -2,31 +2,22 @@
 #include "CommonHeaders.h"
 #include "Vertex.h"
 #include "VulkanFactory.h"
+#include "Interfaces.h"
 
-class Application;
-
-class Model {
+class Model : public DrawableInterface {
 public:
     Model(std::vector<std::string> modelFilenames, std::string textureFilename);
-    void Cleanup();
-    void UpdateWindowSize();
-
-    VkCommandBuffer GetCommandBuffer(uint32_t index) {
-        return m_CommandBuffers[index];
-    }
-
-    uint32_t GetIndicesCount() {
-        return static_cast<uint32_t>(m_Indices.size());
-    }
+    void Cleanup() override;
+    void UpdateWindowSize() override;
 
     void AddInstance(glm::vec3 tv, glm::vec3 sv, glm::vec3 rv, bool rotateFirst) {
         Instance instance(tv, sv, rv, rotateFirst);
         m_Instances.push_back(instance);
     }
 
-    VkCommandBuffer* Draw(uint32_t index, VkCommandBufferBeginInfo* beginInfo, glm::mat4& viewMatrix, LightsPositions lp);
+    VkCommandBuffer* Draw(uint32_t index, VkCommandBufferBeginInfo* beginInfo, glm::mat4& viewMatrix, LightsPositions lp) override;
 
-    void UpdateLightPosition(uint32_t index, glm::vec4 position) {
+    void UpdateLightPosition(uint32_t index, glm::vec4 position) override {
         m_Instances[index].UpdatePosition(position);
     }
 
@@ -69,18 +60,26 @@ private:
     VkDeviceMemory m_VertexBufferMemory;
     VkDeviceMemory m_IndexBufferMemory;
 
+    VkDescriptorSetLayout m_DescriptorSetLayout;
+    VkDescriptorPool m_DescriptorPool;
     std::vector<VkDescriptorSet> m_DescriptorSets;
     VkImage m_TextureImage;
     VkDeviceMemory m_TextureImageMemory;
     VkImageView m_TextureImageView;
+    VkSampler m_TextureSampler;
 
     std::vector<Vertex> m_Vertices;
-
     std::vector<uint32_t> m_Indices;
+
+    VkPipelineLayout m_GraphicsPipelineLayout;
+    VkPipeline m_GraphicsPipeline;
 
     void CreateTextureImage(std::string);
     void CreateTextureImageView();
     void LoadModel(std::string);
     void CreateVertexBuffer();
     void CreateIndexBuffer();
+    void CreateDescriptorSetLayout();
+    void CreateDescriptorPool();
+    void CreateGraphicsPipeline();
 };

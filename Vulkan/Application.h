@@ -6,6 +6,9 @@
 #include "Camera.h"
 #include "VulkanFactory.h"
 
+#include "Skybox.h"
+#include "ReflectiveModel.h"
+
 class Model;
 
 class Application {
@@ -18,7 +21,7 @@ public:
 private:
     VulkanFactory* m_VkFactory;
 
-    std::vector<Model> m_Models;
+    std::vector<DrawableInterface*> m_Models;
     Camera m_Camera;
     LightsPositions m_Lights;
     float m_LightsMoveX = 0.0f, m_LightsMoveY = 0.0f;

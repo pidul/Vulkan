@@ -8,6 +8,8 @@ Skybox::Skybox() :
     m_VertexBufferMemory(VK_NULL_HANDLE), m_IndexBufferMemory(VK_NULL_HANDLE),
     m_TextureImage(VK_NULL_HANDLE), m_TextureImageMemory(VK_NULL_HANDLE), m_TextureImageView(VK_NULL_HANDLE) {
     LoadModel();
+
+    CreateDescriptorSetLayout();
     CreateTextureImage({"textures/posx.jpg", "textures/negx.jpg", "textures/posy.jpg" , "textures/negy.jpg" , "textures/posz.jpg" , "textures/negz.jpg" });
     CreateTextureImageView();
     CreateVertexBuffer();
@@ -16,6 +18,10 @@ Skybox::Skybox() :
 }
 
 void Skybox::Cleanup() {
+    vkDestroyPipelineLayout(m_VkFactory->GetDevice(), m_GraphicsPipelineLayout, nullptr);
+    vkDestroyDescriptorPool(m_VkFactory->GetDevice(), m_DescriptorPool, nullptr);
+    vkDestroyDescriptorSetLayout(m_VkFactory->GetDevice(), m_DescriptorSetLayout, nullptr);
+    vkDestroySampler(m_VkFactory->GetDevice(), m_TextureSampler, nullptr);
     vkDestroyBuffer(m_VkFactory->GetDevice(), m_VertexBuffer, nullptr);
     vkDestroyBuffer(m_VkFactory->GetDevice(), m_IndexBuffer, nullptr);
     vkFreeMemory(m_VkFactory->GetDevice(), m_VertexBufferMemory, nullptr);
@@ -28,57 +34,86 @@ void Skybox::Cleanup() {
 void Skybox::UpdateWindowSize() {
     m_Width = m_VkFactory->GetExtent().width;
     m_Height = m_VkFactory->GetExtent().height;
-    m_VkFactory->CreateDescriptorSets(m_DescriptorSets, m_TextureImageView);
+    vkDestroyPipeline(m_VkFactory->GetDevice(), m_GraphicsPipeline, nullptr);
+    vkDestroyPipelineLayout(m_VkFactory->GetDevice(), m_GraphicsPipelineLayout, nullptr);
+    vkDestroyDescriptorPool(m_VkFactory->GetDevice(), m_DescriptorPool, nullptr);
+    CreateDescriptorPool();
+    CreateGraphicsPipeline();
+    m_VkFactory->CreateTextureSampler(m_TextureSampler);
+    m_VkFactory->CreateDescriptorSets(m_DescriptorSets, m_TextureImageView, m_TextureSampler, m_DescriptorSetLayout, m_DescriptorPool);
     m_VkFactory->AllocateSecondaryCommandBuffer(m_CommandBuffers);
 }
 
+VkCommandBuffer* Skybox::Draw(uint32_t index, VkCommandBufferBeginInfo* beginInfo, glm::mat4& viewMatrix, LightsPositions) {
+    //static auto startTime = std::chrono::high_resolution_clock::now();
+    //auto currTime = std::chrono::high_resolution_clock::now();
+    //float time = std::chrono::duration<float, std::chrono::seconds::period>(currTime - startTime).count();
+
+    VkDeviceSize offsets = 0;
+    vkResetCommandBuffer(m_CommandBuffers[index], 0);
+    vkBeginCommandBuffer(m_CommandBuffers[index], beginInfo);
+    vkCmdBindPipeline(m_CommandBuffers[index], VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline);
+    vkCmdBindVertexBuffers(m_CommandBuffers[index], 0, 1, &m_VertexBuffer, &offsets);
+    vkCmdBindIndexBuffer(m_CommandBuffers[index], m_IndexBuffer, offsets, VK_INDEX_TYPE_UINT32);
+    vkCmdBindDescriptorSets(m_CommandBuffers[index], VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipelineLayout,
+        0, 1, &m_DescriptorSets[index], 0, nullptr);
+
+    UniformBufferObject ubo = {};
+    ubo.projection = glm::perspective(glm::radians(60.0f), m_Width / (float)m_Height, 0.1f, 20.0f);
+    ubo.projection[1][1] *= -1;
+    ubo.view = viewMatrix;
+    ubo.model = GetModelMatrix();
+    vkCmdPushConstants(m_CommandBuffers[index], m_GraphicsPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ubo), &ubo);
+    vkCmdDrawIndexed(m_CommandBuffers[index], static_cast<uint32_t>(m_Indices.size()), 1, 0, 0, 0);
+    vkEndCommandBuffer(m_CommandBuffers[index]);
+    return &m_CommandBuffers[index];
+}
+
 void Skybox::CreateTextureImage(std::vector<std::string> textures) {
-    std::vector<stbi_uc*> vecPixels;
     int texWidth = 0, texHeight = 0, texChannels = 0;
     assert(textures.size() == 6);
-    for (const std::string& texPath : textures) {
-        stbi_uc* pixels = stbi_load(texPath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    stbi_load(textures[0].c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    std::vector<VkBuffer> stagingBuffer(6);
+    std::vector<VkDeviceMemory> stagingBufferMemory(6);
+    uint32_t faceSize = (VkDeviceSize)texWidth * texHeight * 4;
+    for (uint32_t i = 0; i < 6; ++i) {
+        stbi_uc* pixels = stbi_load(textures[i].c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
         if (!pixels) {
             throw std::runtime_error("cannot load texture");
         }
-        vecPixels.push_back(pixels);
-    }
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
 
-    uint32_t faceSize = (VkDeviceSize)texWidth * texHeight * 4;
+        m_VkFactory->CreateBuffer(faceSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            stagingBuffer[i], stagingBufferMemory[i]);
 
-    VkDeviceSize imageSize = 6 * faceSize;
+        void* data;
+        vkMapMemory(m_VkFactory->GetDevice(), stagingBufferMemory[i], 0, faceSize, 0, &data);
+        memcpy(data, pixels, faceSize);
+        vkUnmapMemory(m_VkFactory->GetDevice(), stagingBufferMemory[i]);
 
-    m_VkFactory->CreateBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        stagingBuffer, stagingBufferMemory);
-
-    void* data;
-    vkMapMemory(m_VkFactory->GetDevice(), stagingBufferMemory, 0, imageSize, 0, &data);
-    for (uint32_t i = 0; i < 6; ++i) {
-        memcpy((void*)((char*)data + i * faceSize), vecPixels[i], faceSize);
-    }
-    vkUnmapMemory(m_VkFactory->GetDevice(), stagingBufferMemory);
-
-    for (stbi_uc*& pixels : vecPixels) {
         stbi_image_free(pixels);
     }
 
     m_VkFactory->CreateImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        m_TextureImage, m_TextureImageMemory, 6);
+        m_TextureImage, m_TextureImageMemory, 6, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
 
-    m_VkFactory->TransitionImageLayout(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    m_VkFactory->CopyBufferToImage(stagingBuffer, m_TextureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
-    m_VkFactory->TransitionImageLayout(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    m_VkFactory->TransitionImageLayout(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 6);
+    for (uint32_t i = 0; i < textures.size(); ++i) {
+        m_VkFactory->CopyBufferToImage(stagingBuffer[i], m_TextureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), i);
+    }
+    m_VkFactory->TransitionImageLayout(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 6);
 
-    vkDestroyBuffer(m_VkFactory->GetDevice(), stagingBuffer, nullptr);
-    vkFreeMemory(m_VkFactory->GetDevice(), stagingBufferMemory, nullptr);
+    for (auto& memory : stagingBufferMemory) {
+        vkFreeMemory(m_VkFactory->GetDevice(), memory, nullptr);
+    }
+    for (auto& buffer : stagingBuffer) {
+        vkDestroyBuffer(m_VkFactory->GetDevice(), buffer, nullptr);
+    }
 }
 
 void Skybox::CreateTextureImageView() {
-    m_TextureImageView = m_VkFactory->CreateImageView(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
+    m_TextureImageView = m_VkFactory->CreateImageView(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_CUBE, 6);
 }
 
 void Skybox::LoadModel() {
@@ -170,4 +205,87 @@ void Skybox::CreateIndexBuffer() {
 
     vkDestroyBuffer(m_VkFactory->GetDevice(), stagingBuffer, nullptr);
     vkFreeMemory(m_VkFactory->GetDevice(), stagingBufferMemory, nullptr);
+}
+
+void Skybox::CreateDescriptorSetLayout() {
+    std::vector<VkDescriptorSetLayoutBinding> samplerLayoutBinding = { {
+        0,                                                          // binding
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,                  // descriptorType
+        1,                                                          // descriptorCount
+        VK_SHADER_STAGE_FRAGMENT_BIT,                               // stageFlags
+        nullptr                                                     // pImmutableSamplers
+    } };
+
+    m_VkFactory->CreateDescriptorSetLayout(samplerLayoutBinding, m_DescriptorSetLayout);
+}
+
+void Skybox::CreateDescriptorPool() {
+    std::vector<VkDescriptorPoolSize> samplerPoolSize = { {
+        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,                          // type
+        static_cast<uint32_t>(
+            m_VkFactory->GetSwapchainImages().size())               // descriptorCount
+    } };
+
+    m_VkFactory->CreateDescriptorPool(samplerPoolSize, m_DescriptorPool);
+}
+
+void Skybox::CreateGraphicsPipeline() {
+    VkShaderModule vertexShaderModule, fragmentShaderModule;
+    m_VkFactory->CreateShaderModule(vertexShaderModule, "shaders/skyboxVert.spv");
+    m_VkFactory->CreateShaderModule(fragmentShaderModule, "shaders/skyboxFrag.spv");
+
+    VkPipelineShaderStageCreateInfo vsStageCreateInfo = {
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,        // sType
+        nullptr,                                                    // pNext
+        0,                                                          // flags
+        VK_SHADER_STAGE_VERTEX_BIT,                                 // stage
+        vertexShaderModule,                                         // module
+        "main",                                                     // pName
+        nullptr                                                     // pSpecializationInfo
+    };
+
+    VkPipelineShaderStageCreateInfo fsStageCreateInfo = {
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,        // sType
+        nullptr,                                                    // pNext
+        0,                                                          // flags
+        VK_SHADER_STAGE_FRAGMENT_BIT,                               // stage
+        fragmentShaderModule,                                       // module
+        "main",                                                     // pName
+        nullptr                                                     // pSpecializationInfo
+    };
+
+    std::vector<VkPipelineShaderStageCreateInfo> shaderStages = { vsStageCreateInfo, fsStageCreateInfo };
+    auto inputAttribute = Vertex::GetAttributeDescription();
+    auto bindingDescr = Vertex::GetBindingDescription();
+
+    VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = {
+        VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,  // sType
+        nullptr,                                                    // pNext
+        0,                                                          // flags
+        1,                                                          // vertexBindingDescriptionCount
+        &bindingDescr,                                              // pVertexBindingDescriptions
+        static_cast<uint32_t>(inputAttribute.size()),               // vertexAttributeDescriptionCount
+        inputAttribute.data()                                       // pVertexAttributeDescriptions
+    };
+
+    std::vector<VkPushConstantRange> pushConstantRanges = {
+        {
+            VK_SHADER_STAGE_VERTEX_BIT,                             // stageFlags
+            0,                                                      // offset
+            sizeof(UniformBufferObject)                             // size
+        },
+        {
+            VK_SHADER_STAGE_FRAGMENT_BIT,                           // stageFlags
+            sizeof(UniformBufferObject),                            // offset
+            sizeof(LightsPositions)                                 // size
+        }
+    };
+
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = { m_DescriptorSetLayout };
+
+    m_VkFactory->CreateGraphicsPipelineLayout(descriptorSetLayouts, pushConstantRanges, m_GraphicsPipelineLayout);
+    m_VkFactory->CreateGraphicsPipeline(shaderStages, vertexInputStateCreateInfo, m_GraphicsPipelineLayout, m_GraphicsPipeline, VK_CULL_MODE_FRONT_BIT, VK_FALSE);
+
+    vkDestroyShaderModule(m_VkFactory->GetDevice(), vertexShaderModule, nullptr);
+    vkDestroyShaderModule(m_VkFactory->GetDevice(), fragmentShaderModule, nullptr);
 }

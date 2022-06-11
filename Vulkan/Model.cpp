@@ -15,6 +15,7 @@ Model::Model(std::vector<std::string> modelFilenames, std::string textureFilenam
     for (const auto& modelFilename : modelFilenames) {
         LoadModel(modelFilename);
     }
+    CreateDescriptorSetLayout();
     CreateTextureImage(textureFilename);
     CreateTextureImageView();
     CreateVertexBuffer();
@@ -25,7 +26,13 @@ Model::Model(std::vector<std::string> modelFilenames, std::string textureFilenam
 void Model::UpdateWindowSize() {
     m_Width = m_VkFactory->GetExtent().width;
     m_Height = m_VkFactory->GetExtent().height;
-    m_VkFactory->CreateDescriptorSets(m_DescriptorSets, m_TextureImageView);
+    vkDestroyPipeline(m_VkFactory->GetDevice(), m_GraphicsPipeline, nullptr);
+    vkDestroyPipelineLayout(m_VkFactory->GetDevice(), m_GraphicsPipelineLayout, nullptr);
+    vkDestroyDescriptorPool(m_VkFactory->GetDevice(), m_DescriptorPool, nullptr);
+    CreateDescriptorPool();
+    CreateGraphicsPipeline();
+    m_VkFactory->CreateTextureSampler(m_TextureSampler);
+    m_VkFactory->CreateDescriptorSets(m_DescriptorSets, m_TextureImageView, m_TextureSampler, m_DescriptorSetLayout, m_DescriptorPool);
     m_VkFactory->AllocateSecondaryCommandBuffer(m_CommandBuffers);
 }
 
@@ -56,16 +63,16 @@ void Model::CreateTextureImage(std::string texPath) {
         VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         m_TextureImage, m_TextureImageMemory, 1);
 
-    m_VkFactory->TransitionImageLayout(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    m_VkFactory->CopyBufferToImage(stagingBuffer, m_TextureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
-    m_VkFactory->TransitionImageLayout(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    m_VkFactory->TransitionImageLayout(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1);
+    m_VkFactory->CopyBufferToImage(stagingBuffer, m_TextureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 0);
+    m_VkFactory->TransitionImageLayout(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
 
     vkDestroyBuffer(m_VkFactory->GetDevice(), stagingBuffer, nullptr);
     vkFreeMemory(m_VkFactory->GetDevice(), stagingBufferMemory, nullptr);
 }
 
 void Model::CreateTextureImageView() {
-    m_TextureImageView = m_VkFactory->CreateImageView(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
+    m_TextureImageView = m_VkFactory->CreateImageView(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D, 1);
 }
 
 void Model::LoadModel(std::string modelPath) {
@@ -159,6 +166,11 @@ void Model::CreateIndexBuffer() {
 }
 
 void Model::Cleanup() {
+    vkDestroyPipelineLayout(m_VkFactory->GetDevice(), m_GraphicsPipelineLayout, nullptr);
+    vkDestroyPipeline(m_VkFactory->GetDevice(), m_GraphicsPipeline, nullptr);
+    vkDestroyDescriptorPool(m_VkFactory->GetDevice(), m_DescriptorPool, nullptr);
+    vkDestroyDescriptorSetLayout(m_VkFactory->GetDevice(), m_DescriptorSetLayout, nullptr);
+    vkDestroySampler(m_VkFactory->GetDevice(), m_TextureSampler, nullptr);
     vkDestroyBuffer(m_VkFactory->GetDevice(), m_VertexBuffer, nullptr);
     vkDestroyBuffer(m_VkFactory->GetDevice(), m_IndexBuffer, nullptr);
     vkFreeMemory(m_VkFactory->GetDevice(), m_VertexBufferMemory, nullptr);
@@ -174,23 +186,108 @@ VkCommandBuffer* Model::Draw(uint32_t index, VkCommandBufferBeginInfo* beginInfo
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currTime - startTime).count();
 
     VkDeviceSize offsets = 0;
-    // vkResetCommandBuffer(m_CommandBuffers[index], 0);
+    vkResetCommandBuffer(m_CommandBuffers[index], 0);
     vkBeginCommandBuffer(m_CommandBuffers[index], beginInfo);
-    vkCmdBindPipeline(m_CommandBuffers[index], VK_PIPELINE_BIND_POINT_GRAPHICS, m_VkFactory->GetGraphicsPipeline());
+    vkCmdBindPipeline(m_CommandBuffers[index], VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline);
     vkCmdBindVertexBuffers(m_CommandBuffers[index], 0, 1, &m_VertexBuffer, &offsets);
     vkCmdBindIndexBuffer(m_CommandBuffers[index], m_IndexBuffer, offsets, VK_INDEX_TYPE_UINT32);
-    vkCmdBindDescriptorSets(m_CommandBuffers[index], VK_PIPELINE_BIND_POINT_GRAPHICS, m_VkFactory->GetPipelineLayout(),
+    vkCmdBindDescriptorSets(m_CommandBuffers[index], VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipelineLayout,
                             0, 1, &m_DescriptorSets[index], 0, nullptr);
-    vkCmdPushConstants(m_CommandBuffers[index], m_VkFactory->GetPipelineLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(UniformBufferObject), sizeof(lp), &lp);
+    vkCmdPushConstants(m_CommandBuffers[index], m_GraphicsPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(UniformBufferObject), sizeof(lp), &lp);
+    
+    UniformBufferObject ubo = {};
+    ubo.projection = glm::perspective(glm::radians(60.0f), m_Width / (float)m_Height, 0.1f, 20.0f);
+    ubo.projection[1][1] *= -1;
+    ubo.view = viewMatrix;
     for (auto& instance : m_Instances) {
-        UniformBufferObject ubo = {};
-        ubo.projection = glm::perspective(glm::radians(60.0f), m_Width / (float)m_Height, 0.1f, 20.0f);
-        ubo.projection[1][1] *= -1;
-        ubo.view = viewMatrix;
         ubo.model = instance.GetModelMatrix(time);
-        vkCmdPushConstants(m_CommandBuffers[index], m_VkFactory->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ubo), &ubo);
+        vkCmdPushConstants(m_CommandBuffers[index], m_GraphicsPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ubo), &ubo);
         vkCmdDrawIndexed(m_CommandBuffers[index], static_cast<uint32_t>(m_Indices.size()), 1, 0, 0, 0);
     }
     vkEndCommandBuffer(m_CommandBuffers[index]);
     return &m_CommandBuffers[index];
 }
+
+void Model::CreateDescriptorSetLayout() {
+    std::vector<VkDescriptorSetLayoutBinding> samplerLayoutBinding = { {
+        0,                                                          // binding
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,                  // descriptorType
+        1,                                                          // descriptorCount
+        VK_SHADER_STAGE_FRAGMENT_BIT,                               // stageFlags
+        nullptr                                                     // pImmutableSamplers
+    } };
+
+    m_VkFactory->CreateDescriptorSetLayout(samplerLayoutBinding, m_DescriptorSetLayout);
+}
+
+void Model::CreateDescriptorPool() {
+    std::vector<VkDescriptorPoolSize> samplerPoolSize = { {
+        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,                          // type
+        static_cast<uint32_t>(
+            m_VkFactory->GetSwapchainImages().size())               // descriptorCount
+    } };
+
+    m_VkFactory->CreateDescriptorPool(samplerPoolSize, m_DescriptorPool);
+}
+
+void Model::CreateGraphicsPipeline() {
+    VkShaderModule vertexShaderModule, fragmentShaderModule;
+    m_VkFactory->CreateShaderModule(vertexShaderModule, "shaders/vert.spv");
+    m_VkFactory->CreateShaderModule(fragmentShaderModule, "shaders/frag.spv");
+
+    VkPipelineShaderStageCreateInfo vsStageCreateInfo = {
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,        // sType
+        nullptr,                                                    // pNext
+        0,                                                          // flags
+        VK_SHADER_STAGE_VERTEX_BIT,                                 // stage
+        vertexShaderModule,                                         // module
+        "main",                                                     // pName
+        nullptr                                                     // pSpecializationInfo
+    };
+
+    VkPipelineShaderStageCreateInfo fsStageCreateInfo = {
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,        // sType
+        nullptr,                                                    // pNext
+        0,                                                          // flags
+        VK_SHADER_STAGE_FRAGMENT_BIT,                               // stage
+        fragmentShaderModule,                                       // module
+        "main",                                                     // pName
+        nullptr                                                     // pSpecializationInfo
+    };
+
+    std::vector<VkPipelineShaderStageCreateInfo> shaderStages = { vsStageCreateInfo, fsStageCreateInfo };
+    auto inputAttribute = Vertex::GetAttributeDescription();
+    auto bindingDescr = Vertex::GetBindingDescription();
+
+    VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = {
+        VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,  // sType
+        nullptr,                                                    // pNext
+        0,                                                          // flags
+        1,                                                          // vertexBindingDescriptionCount
+        &bindingDescr,                                              // pVertexBindingDescriptions
+        static_cast<uint32_t>(inputAttribute.size()),               // vertexAttributeDescriptionCount
+        inputAttribute.data()                                       // pVertexAttributeDescriptions
+    };
+
+    std::vector<VkPushConstantRange> pushConstantRanges = {
+        {
+            VK_SHADER_STAGE_VERTEX_BIT,                             // stageFlags
+            0,                                                      // offset
+            sizeof(UniformBufferObject)                             // size
+        },
+        {
+            VK_SHADER_STAGE_FRAGMENT_BIT,                           // stageFlags
+            sizeof(UniformBufferObject),                            // offset
+            sizeof(LightsPositions)                                 // size
+        }
+    };
+
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = { m_DescriptorSetLayout };
+
+    m_VkFactory->CreateGraphicsPipelineLayout(descriptorSetLayouts, pushConstantRanges, m_GraphicsPipelineLayout);
+    m_VkFactory->CreateGraphicsPipeline(shaderStages, vertexInputStateCreateInfo, m_GraphicsPipelineLayout, m_GraphicsPipeline, VK_CULL_MODE_BACK_BIT, VK_TRUE);
+
+    vkDestroyShaderModule(m_VkFactory->GetDevice(), vertexShaderModule, nullptr);
+    vkDestroyShaderModule(m_VkFactory->GetDevice(), fragmentShaderModule, nullptr);
+}
+
