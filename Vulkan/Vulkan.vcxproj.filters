@@ -36,6 +36,9 @@
     <ClCompile Include="ReflectiveModel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="RaytracedModel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
@@ -65,6 +68,9 @@
     <ClInclude Include="ReflectiveModel.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="RaytracedModel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\FragmentShader.frag">
@@ -81,6 +87,30 @@
     </None>
     <None Include="shaders\Reflective.frag">
       <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\raygen.rgen">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\raymiss.rmiss">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\rayshadow.rmiss">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\rchit.rchit">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\passthrough.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\post.frag">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\rayreflection.rmiss">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="LTCanisotropicMatrices.inc">
+      <Filter>Source Files</Filter>
     </None>
   </ItemGroup>
 </Project>

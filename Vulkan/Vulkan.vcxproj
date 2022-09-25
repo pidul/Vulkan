@@ -88,13 +88,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)thirdparty\glm;$(SolutionDir)thirdparty\tinyobjloader;$(SolutionDir)thirdparty\stb;C:\VulkanSDK\1.2.170.0\Include;$(SolutionDir)..\..\Lib\x64\glfw-3.3.3.bin.WIN64\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)thirdparty\glm;$(SolutionDir)thirdparty\tinyobjloader;$(SolutionDir)thirdparty\stb;%VK_SDK_PATH%\Include;$(SolutionDir)..\..\Lib\x64\glfw-3.3.7.bin.WIN64\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\..\Lib\x64\glfw-3.3.3.bin.WIN64\lib-vc2019;C:\VulkanSDK\1.2.170.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\..\Lib\x64\glfw-3.3.7.bin.WIN64\lib-vc2019;%VK_SDK_PATH%\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
@@ -138,13 +138,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)thirdparty\glm;$(SolutionDir)thirdparty\tinyobjloader;$(SolutionDir)thirdparty\stb;C:\VulkanSDK\1.2.170.0\Include;$(SolutionDir)..\..\Lib\x64\glfw-3.3.3.bin.WIN64\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)thirdparty\glm;$(SolutionDir)thirdparty\tinyobjloader;$(SolutionDir)thirdparty\stb;%VK_SDK_PATH%\Include;$(SolutionDir)..\..\Lib\x64\glfw-3.3.7.bin.WIN64\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\..\Lib\x64\glfw-3.3.3.bin.WIN64\lib-vc2019;C:\VulkanSDK\1.2.170.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\..\Lib\x64\glfw-3.3.7.bin.WIN64\lib-vc2022;%VK_SDK_PATH%\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
@@ -163,7 +163,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)thirdparty\glm;$(SolutionDir)thirdparty\tinyobjloader;$(SolutionDir)thirdparty\stb;C:\VulkanSDK\1.2.170.0\Include;$(SolutionDir)..\..\Lib\x64\glfw-3.3.3.bin.WIN64\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)thirdparty\glm;$(SolutionDir)thirdparty\tinyobjloader;$(SolutionDir)thirdparty\stb;%VK_SDK_PATH%\Include;$(SolutionDir)..\..\Lib\x64\glfw-3.3.7.bin.WIN64\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -171,7 +171,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\..\Lib\x64\glfw-3.3.3.bin.WIN64\lib-vc2019;C:\VulkanSDK\1.2.170.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\..\Lib\x64\glfw-3.3.7.bin.WIN64\lib-vc2019;%VK_SDK_PATH%\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
@@ -187,6 +187,7 @@
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Model.cpp" />
+    <ClCompile Include="RaytracedModel.cpp" />
     <ClCompile Include="ReflectiveModel.cpp" />
     <ClCompile Include="Skybox.cpp" />
     <ClCompile Include="VulkanFactory.cpp" />
@@ -197,12 +198,14 @@
     <ClInclude Include="CommonHeaders.h" />
     <ClInclude Include="Interfaces.h" />
     <ClInclude Include="Model.h" />
+    <ClInclude Include="RaytracedModel.h" />
     <ClInclude Include="ReflectiveModel.h" />
     <ClInclude Include="Skybox.h" />
     <ClInclude Include="Vertex.h" />
     <ClInclude Include="VulkanFactory.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="LTCanisotropicMatrices.inc" />
     <None Include="shaders\FragmentShader.frag">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</DeploymentContent>
@@ -214,6 +217,13 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
     </None>
+    <None Include="shaders\passthrough.vert" />
+    <None Include="shaders\post.frag" />
+    <None Include="shaders\raygen.rgen" />
+    <None Include="shaders\raymiss.rmiss" />
+    <None Include="shaders\rayreflection.rmiss" />
+    <None Include="shaders\rayshadow.rmiss" />
+    <None Include="shaders\rchit.rchit" />
     <None Include="shaders\Reflective.frag" />
     <None Include="shaders\SkyboxFragmentShader.frag">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>

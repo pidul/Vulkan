@@ -1,5 +1,12 @@
-C:/VulkanSDK/1.2.170.0/Bin/glslc.exe shaders/VertexShader.vert -o shaders/vert.spv
-C:/VulkanSDK/1.2.170.0/Bin/glslc.exe shaders/FragmentShader.frag -o shaders/frag.spv
-C:/VulkanSDK/1.2.170.0/Bin/glslc.exe shaders/SkyboxVertexShader.vert -o shaders/skyboxVert.spv
-C:/VulkanSDK/1.2.170.0/Bin/glslc.exe shaders/SkyboxFragmentShader.frag -o shaders/skyboxFrag.spv
-C:/VulkanSDK/1.2.170.0/Bin/glslc.exe shaders/Reflective.frag -o shaders/reflectiveFrag.spv
+%VK_SDK_PATH%/Bin/glslc.exe --target-spv=spv1.5 shaders/VertexShader.vert -o shaders/vert.spv
+%VK_SDK_PATH%/Bin/glslc.exe --target-spv=spv1.5 shaders/FragmentShader.frag -o shaders/frag.spv
+%VK_SDK_PATH%/Bin/glslc.exe --target-spv=spv1.5 shaders/SkyboxVertexShader.vert -o shaders/skyboxVert.spv
+%VK_SDK_PATH%/Bin/glslc.exe --target-spv=spv1.5 shaders/SkyboxFragmentShader.frag -o shaders/skyboxFrag.spv
+%VK_SDK_PATH%/Bin/glslc.exe --target-spv=spv1.5 shaders/Reflective.frag -o shaders/reflectiveFrag.spv
+%VK_SDK_PATH%/Bin/glslc.exe --target-spv=spv1.5 shaders/raygen.rgen -o shaders/raygen.spv
+%VK_SDK_PATH%/Bin/glslc.exe --target-spv=spv1.5 shaders/raymiss.rmiss -o shaders/miss.spv
+%VK_SDK_PATH%/Bin/glslc.exe --target-spv=spv1.5 shaders/rayshadow.rmiss -o shaders/shadow.spv
+%VK_SDK_PATH%/Bin/glslc.exe --target-spv=spv1.5 shaders/rchit.rchit -o shaders/chit.spv
+%VK_SDK_PATH%/Bin/glslc.exe --target-spv=spv1.5 shaders/passthrough.vert -o shaders/passthroughVert.spv
+%VK_SDK_PATH%/Bin/glslc.exe --target-spv=spv1.5 shaders/post.frag -o shaders/postFrag.spv
+%VK_SDK_PATH%/Bin/glslc.exe --target-spv=spv1.5 shaders/rayreflection.rmiss -o shaders/rayreflection.spv

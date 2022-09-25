@@ -26,6 +26,7 @@ void VulkanFactory::InitVulkan(GLFWwindow* window) {
     }
     PickPhysicalDevice();
     CreateLogicalDevice();
+    QueryFunctionPointers();
     CreateSwapChain();
     CreateSwapchainImageViews();
     CreateCommandPool();
@@ -43,7 +44,7 @@ void VulkanFactory::CreateVkInstance() {
         VK_MAKE_VERSION(1,0,0),                                     // applicationVersion
         "PiotrDulskiEngine",                                        // pEngineName
         VK_MAKE_VERSION(1,0,0),                                     // engineVersion
-        VK_API_VERSION_1_2                                          // apiVersion
+        VK_API_VERSION_1_3                                          // apiVersion
     };
 
     uint32_t glfwExtensionCount = 0;
@@ -251,9 +252,6 @@ void VulkanFactory::PickPhysicalDevice() {
     };
 
     auto isDeviceSuitable = [&](const VkPhysicalDevice& physicalDevice) {
-        VkPhysicalDeviceProperties deviceProperties;
-        vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
-
         QueueFamilyIndices indice = findQueueFamilies(physicalDevice);
 
         uint32_t extensionsCount = 0;
@@ -272,16 +270,30 @@ void VulkanFactory::PickPhysicalDevice() {
         }
 
         bool swapchainGood = false;
-        if (requiredExtensions.empty()) {
+        if (!requiredExtensions.empty()) {
+            return false;
+        } else {
             SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(physicalDevice);
             swapchainGood = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
+        }
+
+        VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtProperties{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };
+        VkPhysicalDeviceProperties deviceProperties{};
+        VkPhysicalDeviceProperties2 deviceProperties2 = {
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,        // sType
+            &rtProperties,                                         // pNext
+            deviceProperties                                       // properties
+        };
+        vkGetPhysicalDeviceProperties2(physicalDevice, &deviceProperties2);
+
+        if (rtProperties.maxRayRecursionDepth < 2) {
+            return false;
         }
 
         if (indice.has_value()) {
             m_QueueFamilyIndice = indice;
             return requiredExtensions.empty() && swapchainGood &&
-                supportedFeatures.samplerAnisotropy &&
-                deviceProperties.limits.maxPushConstantsSize > sizeof(UniformBufferObject);
+                supportedFeatures.samplerAnisotropy;
         }
         return false;
     };
@@ -311,10 +323,21 @@ void VulkanFactory::CreateLogicalDevice() {
 
     VkPhysicalDeviceFeatures deviceFeatures = {};
     deviceFeatures.samplerAnisotropy = VK_TRUE;
+    VkPhysicalDeviceVulkan12Features vk12features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };
+    vk12features.bufferDeviceAddress = VK_TRUE;
+
+    VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtPipelineFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };
+    rtPipelineFeatures.rayTracingPipeline = VK_TRUE;
+
+    VkPhysicalDeviceAccelerationStructureFeaturesKHR asFeature{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR };
+    asFeature.accelerationStructure = VK_TRUE;
+
+    vk12features.pNext = &rtPipelineFeatures;
+    rtPipelineFeatures.pNext = &asFeature;
 
     VkDeviceCreateInfo deviceCreateInfo = {
         VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,                       // sType
-        nullptr,                                                    // pNext
+        &vk12features,                                                    // pNext
         0,                                                          // flags
         1,                                                          // queueCreateInfoCount
         &deviceQueueCreateInfo,                                     // pQueueCreateInfos
@@ -328,6 +351,16 @@ void VulkanFactory::CreateLogicalDevice() {
     vkCreateDevice(m_PhysicalDevice, &deviceCreateInfo, nullptr, &m_Device);
 
     vkGetDeviceQueue(m_Device, m_QueueFamilyIndice.value(), 0, &m_Queue);
+}
+
+void VulkanFactory::QueryFunctionPointers() {
+    vkGetAccelerationStructureBuildSizesKHR = reinterpret_cast<PFN_vkGetAccelerationStructureBuildSizesKHR>(vkGetDeviceProcAddr(m_Device, "vkGetAccelerationStructureBuildSizesKHR"));
+    vkCmdBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(m_Device, "vkCmdBuildAccelerationStructuresKHR"));
+    vkCreateAccelerationStructureKHR = reinterpret_cast<PFN_vkCreateAccelerationStructureKHR>(vkGetDeviceProcAddr(m_Device, "vkCreateAccelerationStructureKHR"));
+    vkGetRayTracingShaderGroupHandlesKHR = reinterpret_cast<PFN_vkGetRayTracingShaderGroupHandlesKHR>(vkGetDeviceProcAddr(m_Device, "vkGetRayTracingShaderGroupHandlesKHR"));
+    vkCmdTraceRaysKHR = reinterpret_cast<PFN_vkCmdTraceRaysKHR>(vkGetDeviceProcAddr(m_Device, "vkCmdTraceRaysKHR"));
+    vkGetAccelerationStructureDeviceAddressKHR = reinterpret_cast<PFN_vkGetAccelerationStructureDeviceAddressKHR>(vkGetDeviceProcAddr(m_Device, "vkGetAccelerationStructureDeviceAddressKHR"));
+    vkCreateRayTracingPipelinesKHR = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(vkGetDeviceProcAddr(m_Device, "vkCreateRayTracingPipelinesKHR"));
 }
 
 void VulkanFactory::RecreateSwapChain() {
@@ -362,7 +395,7 @@ void VulkanFactory::CleanupSwapChain() {
     vkDestroySwapchainKHR(m_Device, m_SwapChain, nullptr);
 }
 
-VkImageView VulkanFactory::CreateImageView(VkImage img, VkFormat format, VkImageAspectFlags aspectMask, VkImageViewType viewType, uint32_t facesCount) {
+VkImageView VulkanFactory::CreateImageView(VkImage img, VkFormat format, VkImageAspectFlags aspectMask, VkImageViewType viewType, uint32_t facesCount, uint32_t mipLevels) {
     VkImageViewCreateInfo createInfo = {
         VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,                   // sType
         nullptr,                                                    // pNext
@@ -379,7 +412,7 @@ VkImageView VulkanFactory::CreateImageView(VkImage img, VkFormat format, VkImage
         {
             aspectMask,                                         // aspectMask
             0,                                                  // baseMipLevel
-            1,                                                  // levelCount
+            mipLevels,                                          // levelCount
             0,                                                  // baseArrayLayer
             facesCount,                                         // layerCount
         }                                                           // subresourceRange
@@ -479,24 +512,24 @@ void VulkanFactory::CreateSwapchainImageViews() {
 }
 
 void VulkanFactory::CreateDepthResources(){
-    CreateImage(m_SwapChainExtent.width, m_SwapChainExtent.height, VK_FORMAT_D24_UNORM_S8_UINT,
+    CreateImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, VK_FORMAT_D24_UNORM_S8_UINT,
         VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DepthImage, m_DepthImageMemory, 1);
     m_DepthImageView = CreateImageView(m_DepthImage, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_ASPECT_DEPTH_BIT, VK_IMAGE_VIEW_TYPE_2D, 1);
 }
 
-void VulkanFactory::CreateImage(uint32_t width, uint32_t height, VkFormat format,
+void VulkanFactory::CreateImage(uint32_t width, uint32_t height, uint32_t depth, VkFormat format,
     VkImageTiling tiling, VkImageUsageFlags usage,
     VkMemoryPropertyFlags properties, VkImage& img,
-    VkDeviceMemory& imgMem, uint32_t arrayLayers, uint32_t flags) {
+    VkDeviceMemory& imgMem, uint32_t arrayLayers, uint32_t flags, uint32_t mipLevels) {
     VkImageCreateInfo createInfo = {
         VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,                        // sType
         nullptr,                                                    // pNext
-        flags,                                                          // flags
-        VK_IMAGE_TYPE_2D,                                           // imageType
+        flags,                                                      // flags
+        (depth == 1) ? VK_IMAGE_TYPE_2D : VK_IMAGE_TYPE_3D,         // imageType
         format,                                                     // format
-        { width, height, 1 },                                       // extent
-        1,                                                          // mipLevels
+        { width, height, depth },                                   // extent
+        mipLevels,                                                  // mipLevels
         arrayLayers,                                                // arrayLayers
         VK_SAMPLE_COUNT_1_BIT,                                      // samples
         tiling,                                                     // tiling
@@ -537,6 +570,103 @@ void VulkanFactory::CreateImage(uint32_t width, uint32_t height, VkFormat format
     }
 
     vkBindImageMemory(m_Device, img, imgMem, 0);
+}
+
+void VulkanFactory::GenerateMipMaps(VkImage &image, uint32_t width, uint32_t height, uint32_t mipLevels, uint32_t arrayLayers) {
+    VkCommandBuffer cmdBuff = BeginSingleTimeCommands();
+
+    VkImageMemoryBarrier barrier{
+        VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,                     // sType
+        nullptr,                                                    // pNext
+        VK_ACCESS_TRANSFER_WRITE_BIT,                               // srcAccessMask
+        VK_ACCESS_TRANSFER_READ_BIT,                                // dstAccessMask
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,                       // oldLayout
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,                       // newLayout
+        VK_QUEUE_FAMILY_IGNORED,                                    // srcQueueFamilyIndex
+        VK_QUEUE_FAMILY_IGNORED,                                    // dstQueueFamilyIndex
+        image,                                                      // image
+        {
+            VK_IMAGE_ASPECT_COLOR_BIT,                          // aspectMask
+            0,                                                  // baseMipLevel
+            1,                                                  // levelCount
+            0,                                                  // baseArrayLayer
+            arrayLayers                                         // layerCount
+        }// subresourceRange
+    };
+
+    int32_t mipWidth = width;
+    int32_t mipHeight = height;
+
+    for (uint32_t i = 1; i < mipLevels; ++i) {
+        barrier.subresourceRange.baseMipLevel = i - 1;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+        vkCmdPipelineBarrier(cmdBuff,
+                             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+                             0, nullptr,
+                             0, nullptr,
+                             1, &barrier);
+
+        VkImageBlit blit{
+            {
+                VK_IMAGE_ASPECT_COLOR_BIT,                      // aspectMask
+                i - 1,                                          // mipLevel
+                0,                                              // baseArrayLayer
+                arrayLayers                                     // layerCount
+            },                                                      // srcSubresource
+            {
+                { 0, 0, 0 },
+                { mipWidth, mipHeight, 1 }
+            },                                                      // srcOffsets[2]
+            {
+                VK_IMAGE_ASPECT_COLOR_BIT,                      // aspectMask
+                i,                                              // mipLevel
+                0,                                              // baseArrayLayer
+                arrayLayers                                     // layerCount
+            },                                                      // dstSubresource
+            {
+                { 0, 0, 0 },
+                { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 }
+            }                                                       // dstOffsets[2]
+        };
+
+        vkCmdBlitImage(cmdBuff, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                       image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
+
+        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        vkCmdPipelineBarrier(cmdBuff,
+                             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0,
+                             0, nullptr,
+                             0, nullptr,
+                             1, &barrier);
+
+        if (mipWidth > 1) {
+            mipWidth /= 2;
+        }
+        if (mipHeight > 1) {
+            mipHeight /= 2;
+        }
+    }
+
+    barrier.subresourceRange.baseMipLevel = mipLevels - 1;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(cmdBuff,
+                         VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0,
+                         0, nullptr,
+                         0, nullptr,
+                         1, &barrier);
+
+    EndSingleTimeCommands(cmdBuff);
 }
 
 void VulkanFactory::CreateFramebuffers() {
@@ -664,9 +794,16 @@ void VulkanFactory::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, Vk
         throw std::runtime_error("cannot find suitable memory type");
     };
 
+    VkMemoryAllocateFlagsInfo flagsInfo{
+        VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,               // sType
+        nullptr,                                                    // pNext
+        VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,                      // flags
+        0                                                           // deviceMask
+    };
+
     VkMemoryAllocateInfo memAllocateInfo = {
         VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,                     // sType
-        nullptr,                                                    // pNext
+        &flagsInfo,                                                 // pNext
         memRequirements.size,                                       // allocationSize
         findMemoryType(memRequirements.memoryTypeBits,
                         properties)                                 // memoryTypeIndex
@@ -727,7 +864,7 @@ void VulkanFactory::EndSingleTimeCommands(VkCommandBuffer buffer) {
         nullptr                                                     // pSignalSemaphores
     };
     vkQueueSubmit(m_Queue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(m_Queue);
+    VkResult result = vkQueueWaitIdle(m_Queue);
     vkFreeCommandBuffers(m_Device, m_CommandPool, 1, &buffer);
 }
 
@@ -751,7 +888,7 @@ void VulkanFactory::CreateTextureSampler(VkSampler& textureSampler) {
         VK_FALSE,                                                   // compareEnable
         VK_COMPARE_OP_ALWAYS,                                       // compareOp
         0.0f,                                                       // minLod
-        0.0f,                                                       // maxLod
+        20.0f,                                                      // maxLod
         VK_BORDER_COLOR_INT_OPAQUE_BLACK,                           // borderColor
         VK_FALSE                                                    // unnormalizedCoordinates
     };
@@ -761,7 +898,74 @@ void VulkanFactory::CreateTextureSampler(VkSampler& textureSampler) {
     }
 }
 
-void VulkanFactory::CopyBufferToImage(VkBuffer& srcBuffer, VkImage dstImage, uint32_t width, uint32_t height, uint32_t faceNo) {
+OffscreenRender &&VulkanFactory::CreateOffscreenRenderer() {
+    OffscreenRender render{};
+
+    CreateImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        render.targetImage, render.targetImageMemory, 1, 0);
+
+    TransitionImageLayout(render.targetImage, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 1);
+
+    render.targetImageView = CreateImageView(render.targetImage, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D, 1);
+    CreateTextureSampler(render.targetSampler);
+
+    std::vector<VkDescriptorSetLayoutBinding> samplerLayoutBinding = { {
+        0,                                                          // binding
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,                  // descriptorType
+        1,                                                          // descriptorCount
+        VK_SHADER_STAGE_FRAGMENT_BIT,                               // stageFlags
+        nullptr                                                     // pImmutableSamplers
+    } };
+
+    CreateDescriptorSetLayout(samplerLayoutBinding, render.descriptorSetLayout);
+
+    std::vector<VkDescriptorPoolSize> samplerPoolSize = { {
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,                  // type
+        1                                                           // descriptorCount
+    } };
+
+    CreateDescriptorPool(samplerPoolSize, render.descriptorPool);
+
+    VkDescriptorSetAllocateInfo allocateInfo = {
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,             // sType
+        nullptr,                                                    // pNext
+        render.descriptorPool,                                      // descriptorPool
+        1,                                                          // descriptorSetCount
+        &render.descriptorSetLayout                                 // pSetLayouts
+    };
+
+    if (vkAllocateDescriptorSets(m_Device, &allocateInfo, &render.descriptorSet) != VK_SUCCESS) {
+        throw std::runtime_error("cannot allocate descriptor sets");
+    }
+
+    VkDescriptorImageInfo imageInfo = {
+        render.targetSampler,                                       // sampler
+        render.targetImageView,                                     // imageView
+        VK_IMAGE_LAYOUT_GENERAL                                     // imageLayout
+    };
+
+    std::array<VkWriteDescriptorSet, 1> writeDescriptorSet{};
+
+    writeDescriptorSet[0] = {
+        VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,                     // sType
+        nullptr,                                                    // pNext
+        render.descriptorSet,                                       // dstSet
+        0,                                                          // dstBinding
+        0,                                                          // dstArrayElement
+        1,                                                          // descriptorCount
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,                  // descriptorType
+        &imageInfo,                                                 // pImageInfo
+        nullptr,                                                    // pBufferInfo
+        nullptr                                                     // pTexelBufferView
+    };
+
+    vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(writeDescriptorSet.size()), writeDescriptorSet.data(), 0, nullptr);
+
+    return std::move(render);
+}
+
+void VulkanFactory::CopyBufferToImage(VkBuffer& srcBuffer, VkImage dstImage, uint32_t width, uint32_t height, uint32_t depth, uint32_t faceNo) {
     VkCommandBuffer cmdBuffer = BeginSingleTimeCommands();
 
     VkBufferImageCopy region = {
@@ -775,7 +979,7 @@ void VulkanFactory::CopyBufferToImage(VkBuffer& srcBuffer, VkImage dstImage, uin
             1,                                                  // layerCount
         },                                                          // imageSubresource
         {0, 0, 0},                                                  // imageOffset
-        {width, height, 1}                                          // imageExtent
+        {width, height, depth}                                      // imageExtent
     };
 
     vkCmdCopyBufferToImage(cmdBuffer, srcBuffer, dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
@@ -783,7 +987,7 @@ void VulkanFactory::CopyBufferToImage(VkBuffer& srcBuffer, VkImage dstImage, uin
     EndSingleTimeCommands(cmdBuffer);
 }
 
-void VulkanFactory::TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount) {
+void VulkanFactory::TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount, uint32_t mipLevels) {
     VkCommandBuffer cmdBuffer = BeginSingleTimeCommands();
 
     VkImageMemoryBarrier imgMemoryBarrier = {
@@ -799,7 +1003,7 @@ void VulkanFactory::TransitionImageLayout(VkImage image, VkFormat format, VkImag
         {
             VK_IMAGE_ASPECT_COLOR_BIT,                          // aspectMask
             0,                                                  // baseMipLevel
-            1,                                                  // levelCount
+            mipLevels,                                          // levelCount
             0,                                                  // baseArrayLayer
             layerCount                                          // layerCount
         }                                                           // subresourceRange
@@ -814,6 +1018,12 @@ void VulkanFactory::TransitionImageLayout(VkImage image, VkFormat format, VkImag
 
         srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    } else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_GENERAL) {
+        imgMemoryBarrier.srcAccessMask = 0;
+        imgMemoryBarrier.dstAccessMask = VkAccessFlags();
+
+        srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
     } else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
         imgMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         imgMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
@@ -1037,7 +1247,7 @@ void VulkanFactory::CreateDescriptorPool(std::vector<VkDescriptorPoolSize>& pool
     }
 }
 
-void VulkanFactory::CreateDescriptorSets(std::vector<VkDescriptorSet>& descriptorSets, VkImageView& textureImageView,
+void VulkanFactory::CreateTextureDescriptorSets(std::vector<VkDescriptorSet>& descriptorSets, VkImageView& textureImageView,
                                             VkSampler& textureSampler, VkDescriptorSetLayout& layout, VkDescriptorPool& pool) {
     std::vector<VkDescriptorSetLayout> layouts(m_SwapChainImages.size(), layout);
     VkDescriptorSetAllocateInfo allocateInfo = {
@@ -1060,7 +1270,7 @@ void VulkanFactory::CreateDescriptorSets(std::vector<VkDescriptorSet>& descripto
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL                // imageLayout
         };
 
-        std::array<VkWriteDescriptorSet, 1> writeDescriptorSet;
+        std::array<VkWriteDescriptorSet, 1> writeDescriptorSet{};
 
         writeDescriptorSet[0] = {
             VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,                 // sType
@@ -1074,6 +1284,45 @@ void VulkanFactory::CreateDescriptorSets(std::vector<VkDescriptorSet>& descripto
             nullptr,                                                // pBufferInfo
             nullptr                                                 // pTexelBufferView
         };
+
+        vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(writeDescriptorSet.size()), writeDescriptorSet.data(), 0, nullptr);
+    }
+}
+
+void VulkanFactory::CreateMultipleTextureDescriptorSets(std::vector<VkDescriptorSet> &descriptorSets, std::vector<VkDescriptorImageInfo>& imageInfos,
+                                                        VkDescriptorSetLayout &layout, VkDescriptorPool &pool) {
+    std::vector<VkDescriptorSetLayout> layouts(m_SwapChainImages.size(), layout);
+    VkDescriptorSetAllocateInfo allocateInfo = {
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,             // sType
+        nullptr,                                                    // pNext
+        pool,                                                       // descriptorPool
+        static_cast<uint32_t>(m_SwapChainImages.size()),            // descriptorSetCount
+        layouts.data()                                              // pSetLayouts
+    };
+    descriptorSets.resize(m_SwapChainImages.size());
+
+    if (vkAllocateDescriptorSets(m_Device, &allocateInfo, descriptorSets.data()) != VK_SUCCESS) {
+        throw std::runtime_error("cannot allocate descriptor sets");
+    }
+
+    for (uint32_t i = 0; i < descriptorSets.size(); ++i) {
+
+        std::vector<VkWriteDescriptorSet> writeDescriptorSet{};
+
+        for (uint32_t j = 0; j < imageInfos.size(); ++j) {
+            writeDescriptorSet.push_back({
+                VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,             // sType
+                nullptr,                                            // pNext
+                descriptorSets[i],                                  // dstSet
+                j,                                                  // dstBinding
+                0,                                                  // dstArrayElement
+                1,                                                  // descriptorCount
+                VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,          // descriptorType
+                &imageInfos[j],                                     // pImageInfo
+                nullptr,                                            // pBufferInfo
+                nullptr                                             // pTexelBufferView
+            });
+        }
 
         vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(writeDescriptorSet.size()), writeDescriptorSet.data(), 0, nullptr);
     }
@@ -1107,4 +1356,522 @@ void VulkanFactory::Cleanup() {
     vkDestroySurfaceKHR(m_VkInstance, m_Surface, nullptr);
     vkDestroyDevice(m_Device, nullptr);
     vkDestroyInstance(m_VkInstance, nullptr);
+}
+
+VkDeviceAddress VulkanFactory::GetBufferAddress(VkBuffer buffer) {
+    VkBufferDeviceAddressInfo info = { 
+        VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,               // sType
+        nullptr,                                                    // pNext
+        buffer                                                      // buffer
+    };
+    return vkGetBufferDeviceAddress(m_Device, &info);
+}
+
+VkDeviceAddress VulkanFactory::GetAccelerationStructureAddress(VkAccelerationStructureKHR as) {
+    VkAccelerationStructureDeviceAddressInfoKHR info{
+        VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,   // sType
+        nullptr,                                                            // pNext
+        as                                                                  // accelerationStructure
+    };
+    return vkGetAccelerationStructureDeviceAddressKHR(m_Device, &info);
+}
+
+AccelerationStructure &&VulkanFactory::CreateBLAS(VkBuffer vertexBuffer, VkBuffer indexBuffer, uint32_t vertexNo, uint32_t primitiveNo) {
+    VkDeviceAddress vertexBufferAddress = GetBufferAddress(vertexBuffer);
+    VkDeviceAddress indexBufferAddress = GetBufferAddress(indexBuffer);
+
+    VkAccelerationStructureGeometryTrianglesDataKHR asGeometryTrianglesData{
+        VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,   // sType
+        nullptr,                                                                // pNext
+        VK_FORMAT_R32G32B32_SFLOAT,                                             // vertexFormat
+        { vertexBufferAddress },                                                // vertexData
+        sizeof(Vertex),                                                         // vertexStride
+        vertexNo,                                                               // maxVertex
+        VK_INDEX_TYPE_UINT32,                                                   // indexType
+        { indexBufferAddress },                                                 // indexData
+        {}                                                                      // transformData
+    };
+
+    VkAccelerationStructureGeometryKHR asGeometry{
+        VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,      // sType
+        nullptr,                                                    // pNext
+        VK_GEOMETRY_TYPE_TRIANGLES_KHR,                             // geometryType
+        { asGeometryTrianglesData },                                // geometry
+        VK_GEOMETRY_OPAQUE_BIT_KHR                                  // flags
+    };
+
+    const VkAccelerationStructureBuildRangeInfoKHR *asBuildRangeInfo = new VkAccelerationStructureBuildRangeInfoKHR{
+        primitiveNo,                                                // primitiveCount
+        0,                                                          // primitiveOffset
+        0,                                                          // firstVertex
+        0                                                           // transformOffset
+    };
+
+    VkAccelerationStructureBuildGeometryInfoKHR asBuildGeometryInfo{
+        VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,   // sType
+        nullptr,                                                            // pNext
+        VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,                    // type
+        VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,          // flags
+        VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,                     // mode
+        {},                                                                 // srcAccelerationStructure
+        {},                                                                 // dstAccelerationStructure
+        1,                                                                  // geometryCount
+        &asGeometry,                                                        // pGeometries
+        nullptr,                                                            // ppGeometries
+        {}                                                                  // scratchData
+    };
+
+    VkAccelerationStructureBuildSizesInfoKHR asBuildSizesInfo{
+        VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR,  // sType
+        nullptr,                                                        // pNext
+        0,                                                              // accelerationStructureSize
+        0,                                                              // updateScratchSize
+        0                                                               // buildScratchSize
+    };
+
+    VkResult res{};
+
+    vkGetAccelerationStructureBuildSizesKHR(m_Device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &asBuildGeometryInfo, &primitiveNo, &asBuildSizesInfo);
+
+    VkBuffer scratchBuffer{};
+    VkDeviceMemory scratchMemory{};
+    CreateBuffer(asBuildSizesInfo.buildScratchSize, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        0, scratchBuffer, scratchMemory);
+
+    VkBufferDeviceAddressInfo bufferInfo{
+        VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,               // sType
+        nullptr,                                                    // pNext
+        scratchBuffer                                               // buffer
+    };
+    VkDeviceAddress scratchAddress = vkGetBufferDeviceAddress(m_Device, &bufferInfo);
+
+    AccelerationStructure blas{};
+
+    CreateBuffer(asBuildSizesInfo.accelerationStructureSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR |
+                                                        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, 0, blas.buffer, blas.memory);
+
+    VkAccelerationStructureCreateInfoKHR asCreateInfo{
+        VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,   // sType
+        nullptr,                                                    // pNext
+        0,                                                          // createFlags
+        blas.buffer,                                                // buffer
+        0,                                                          // offset
+        asBuildSizesInfo.accelerationStructureSize,                 // size
+        VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,            // type
+        0                                                           // deviceAddress
+    };
+
+    res = vkCreateAccelerationStructureKHR(m_Device, &asCreateInfo, nullptr, &blas.as);
+
+    asBuildGeometryInfo.dstAccelerationStructure = blas.as;
+    asBuildGeometryInfo.scratchData.deviceAddress = scratchAddress;
+
+    VkCommandBuffer cmdBuff = BeginSingleTimeCommands();
+
+    // only one creation for now, creating more needs pipeline barrier
+    vkCmdBuildAccelerationStructuresKHR(cmdBuff, 1, &asBuildGeometryInfo, &asBuildRangeInfo);
+
+    EndSingleTimeCommands(cmdBuff);
+
+    vkFreeMemory(m_Device, scratchMemory, nullptr);
+
+    return std::move(blas);
+}
+
+AccelerationStructure &&VulkanFactory::CreateTLAS(glm::mat4 transformMatrix, VkDeviceAddress BLASAddress, uint32_t primitiveCount) {
+    VkTransformMatrixKHR matrix;
+    memcpy(&matrix, &transformMatrix, sizeof(VkTransformMatrixKHR));
+    VkAccelerationStructureInstanceKHR asInstance{
+        matrix,                                                     // transform
+        0,                                                          // instanceCustomIndex
+        0xFF,                                                       // mask
+        0,                                                          // instanceShaderBindingTableRecordOffset
+        VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,  // flags
+        BLASAddress                                                 // accelerationStructureReference
+    };
+
+    VkCommandBuffer cmdBuff = BeginSingleTimeCommands();
+
+    VkBuffer instanceBuffer{};
+    VkDeviceMemory instanceMemory{};
+    CreateBuffer(sizeof(VkAccelerationStructureInstanceKHR), VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        0, instanceBuffer, instanceMemory);
+
+    vkCmdUpdateBuffer(cmdBuff, instanceBuffer, 0, sizeof(VkAccelerationStructureInstanceKHR), &asInstance);
+
+    VkDeviceAddress instanceBufferAddress = GetBufferAddress(instanceBuffer);
+
+    VkMemoryBarrier barrier{
+        VK_STRUCTURE_TYPE_MEMORY_BARRIER,                           // sType;
+        nullptr,                                                    // pNext;
+        VK_ACCESS_TRANSFER_WRITE_BIT,                               // srcAccessMask;
+        VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR              // dstAccessMask;
+    };
+
+    vkCmdPipelineBarrier(cmdBuff, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+        0, 1, &barrier, 0, nullptr, 0, nullptr);
+
+    VkAccelerationStructureGeometryInstancesDataKHR asGeometryInstances{
+        VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,   // sType
+        nullptr,                                                                // pNext
+        VK_FALSE,                                                               // arrayOfPointers
+        instanceBufferAddress                                                   // data
+    };
+
+    VkAccelerationStructureGeometryKHR asGeometry{
+        VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,      // sType
+        nullptr,                                                    // pNext
+        VK_GEOMETRY_TYPE_INSTANCES_KHR,                             // geometryType
+        {},                                                         // geometry
+        0                                                           // flags
+    };
+    asGeometry.geometry.instances = asGeometryInstances; // for some reason it didn't let me do it in previous call
+
+    VkAccelerationStructureBuildGeometryInfoKHR asBuildGeometryInfo{
+        VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,   // sType
+        nullptr,                                                            // pNext
+        VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,                       // type
+        VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,          // flags
+        VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,                     // mode
+        VK_NULL_HANDLE,                                                     // srcAccelerationStructure
+        VK_NULL_HANDLE,                                                     // dstAccelerationStructure
+        1,                                                                  // geometryCount
+        &asGeometry,                                                        // pGeometries
+        nullptr,                                                            // ppGeometries
+        0                                                                   // scratchData
+    };
+
+    VkAccelerationStructureBuildSizesInfoKHR asBuildSizesInfo{
+        VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR,  // sType
+        nullptr,                                                        // pNext
+        0,                                                              // accelerationStructureSize
+        0,                                                              // updateScratchSize
+        0                                                               // buildScratchSize
+    };
+    uint32_t count{ 1 };
+    vkGetAccelerationStructureBuildSizesKHR(m_Device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &asBuildGeometryInfo, &count, &asBuildSizesInfo);
+
+    AccelerationStructure tlas{};
+
+    CreateBuffer(asBuildSizesInfo.accelerationStructureSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR |
+        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, 0, tlas.buffer, tlas.memory);
+
+    VkAccelerationStructureCreateInfoKHR asCreateInfo{
+        VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,   // sType
+        nullptr,                                                    // pNext
+        0,                                                          // createFlags
+        tlas.buffer,                                                // buffer
+        0,                                                          // offset
+        asBuildSizesInfo.accelerationStructureSize,                 // size
+        VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,               // type
+        0                                                           // deviceAddress
+    };
+
+    vkCreateAccelerationStructureKHR(m_Device, &asCreateInfo, nullptr, &tlas.as);
+
+    VkBuffer scratchBuffer{};
+    VkDeviceMemory scratchMemory{};
+    CreateBuffer(asBuildSizesInfo.buildScratchSize, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        0, scratchBuffer, scratchMemory);
+
+    VkDeviceAddress scratchAddress = GetBufferAddress(scratchBuffer);
+    
+    asBuildGeometryInfo.scratchData.deviceAddress = scratchAddress;
+    asBuildGeometryInfo.dstAccelerationStructure = tlas.as;
+
+    const VkAccelerationStructureBuildRangeInfoKHR *asBuildRangeInfo = new VkAccelerationStructureBuildRangeInfoKHR{
+        1,                                                          // primitiveCount
+        0,                                                          // primitiveOffset
+        0,                                                          // firstVertex
+        0                                                           // transformOffset
+    };
+
+    vkCmdBuildAccelerationStructuresKHR(cmdBuff, 1, &asBuildGeometryInfo, &asBuildRangeInfo);
+
+    EndSingleTimeCommands(cmdBuff);
+
+    vkFreeMemory(m_Device, scratchMemory, nullptr);
+    vkFreeMemory(m_Device, instanceMemory, nullptr);
+
+    return std::move(tlas);
+}
+
+void VulkanFactory::CreateRtDescriptorSets(AccelerationStructure tlas, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorPool descriptorPool,
+                                            std::vector<VkDescriptorSet>& descriptorSets, std::vector<VkImageView> &imageViews) {
+    std::vector<VkDescriptorSetLayout> layouts(m_SwapChainImages.size(), descriptorSetLayout);
+    VkDescriptorSetAllocateInfo allocateInfo = {
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,             // sType
+        nullptr,                                                    // pNext
+        descriptorPool,                                             // descriptorPool
+        static_cast<uint32_t>(imageViews.size()),                   // descriptorSetCount
+        layouts.data()                                              // pSetLayouts
+    };
+    descriptorSets.resize(imageViews.size());
+
+    if (vkAllocateDescriptorSets(m_Device, &allocateInfo, descriptorSets.data()) != VK_SUCCESS) {
+        throw std::runtime_error("cannot allocate descriptor sets");
+    }
+
+    for (uint32_t i = 0; i < descriptorSets.size(); ++i) {
+        VkWriteDescriptorSetAccelerationStructureKHR asDescriptorWrite{
+            VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,  // sType
+            nullptr,                                                            // pNext
+            1,                                                                  // accelerationStructureCount
+            &tlas.as                                                            // pAccelerationStructures
+        };
+
+        VkDescriptorImageInfo imageInfo = {
+            {},                                                     // sampler
+            imageViews[i],                                          // imageView
+            VK_IMAGE_LAYOUT_GENERAL                                 // imageLayout
+        };
+
+        std::array<VkWriteDescriptorSet, 2> writeDescriptorSet{};
+
+        writeDescriptorSet[0] = {
+            VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,                 // sType
+            &asDescriptorWrite,                                     // pNext
+            descriptorSets[i],                                      // dstSet
+            0,                                                      // dstBinding
+            0,                                                      // dstArrayElement
+            1,                                                      // descriptorCount
+            VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,          // descriptorType
+            nullptr,                                                // pImageInfo
+            nullptr,                                                // pBufferInfo
+            nullptr                                                 // pTexelBufferView
+        };
+
+        writeDescriptorSet[1] = {
+            VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,                 // sType
+            nullptr,                                                // pNext
+            descriptorSets[i],                                      // dstSet
+            1,                                                      // dstBinding
+            0,                                                      // dstArrayElement
+            1,                                                      // descriptorCount
+            VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,                       // descriptorType
+            &imageInfo,                                             // pImageInfo
+            nullptr,                                                // pBufferInfo
+            nullptr                                                 // pTexelBufferView
+        };
+
+        vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(writeDescriptorSet.size()), writeDescriptorSet.data(), 0, nullptr);
+    }
+}
+
+void VulkanFactory::UpdateRtDescriptorSets(std::vector<VkDescriptorSet>& descriptorSets) {
+    for (uint32_t i = 0; i < descriptorSets.size(); ++i) {
+        VkDescriptorImageInfo imageInfo = {
+            {},                                                     // sampler
+            m_SwapChainImageViews[i],                               // imageView
+            VK_IMAGE_LAYOUT_GENERAL                                 // imageLayout
+        };
+
+        std::array<VkWriteDescriptorSet, 1> writeDescriptorSet{};
+        writeDescriptorSet[0] = {
+            VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,                 // sType
+            nullptr,                                                // pNext
+            descriptorSets[i],                                      // dstSet
+            1,                                                      // dstBinding
+            0,                                                      // dstArrayElement
+            1,                                                      // descriptorCount
+            VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,                       // descriptorType
+            &imageInfo,                                             // pImageInfo
+            nullptr,                                                // pBufferInfo
+            nullptr                                                 // pTexelBufferView
+        };
+
+        vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(writeDescriptorSet.size()), writeDescriptorSet.data(), 0, nullptr);
+    }
+}
+
+void VulkanFactory::CreateRtPipeline(const std::vector<VkDescriptorSetLayout>& rtDescSetLayouts, VkPipelineLayout& pipelineLayout, VkPipeline& rtPipeline, std::vector<VkRayTracingShaderGroupCreateInfoKHR> &shaderGroups) {
+    enum StageIndices {
+        eRaygen,
+        eMiss,
+        eMiss2,
+        eMiss3,
+        eClosestHit,
+        eShaderGroupCount
+    };
+
+    std::array<VkPipelineShaderStageCreateInfo, eShaderGroupCount> stages{};
+    VkPipelineShaderStageCreateInfo stage{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
+    stage.pName = "main";
+
+    VkShaderModule raygenShaderModule, missShaderModule, miss2ShaderModule, miss3ShaderModule, chShaderModule;
+    CreateShaderModule(raygenShaderModule, "shaders/raygen.spv");
+    CreateShaderModule(missShaderModule, "shaders/miss.spv");
+    CreateShaderModule(miss2ShaderModule, "shaders/shadow.spv");
+    CreateShaderModule(miss3ShaderModule, "shaders/rayreflection.spv");
+    CreateShaderModule(chShaderModule, "shaders/chit.spv");
+
+    stage.module = raygenShaderModule;
+    stage.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    stages[eRaygen] = stage;
+    
+    stage.module = missShaderModule;
+    stage.stage = VK_SHADER_STAGE_MISS_BIT_KHR;
+    stages[eMiss] = stage;
+    
+    stage.module = miss2ShaderModule;
+    stage.stage = VK_SHADER_STAGE_MISS_BIT_KHR;
+    stages[eMiss2] = stage;
+
+    stage.module = miss3ShaderModule;
+    stage.stage = VK_SHADER_STAGE_MISS_BIT_KHR;
+    stages[eMiss3] = stage;
+
+    stage.module = chShaderModule;
+    stage.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    stages[eClosestHit] = stage;
+
+    VkRayTracingShaderGroupCreateInfoKHR rtShaderGroup{
+        VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR, // sType
+        nullptr,                                                    // pNext
+        VK_RAY_TRACING_SHADER_GROUP_TYPE_MAX_ENUM_KHR,              // type
+        VK_SHADER_UNUSED_KHR,                                       // generalShader
+        VK_SHADER_UNUSED_KHR,                                       // closestHitShader
+        VK_SHADER_UNUSED_KHR,                                       // anyHitShader
+        VK_SHADER_UNUSED_KHR,                                       // intersectionShader
+        nullptr                                                     // pShaderGroupCaptureReplayHandle
+    };
+
+    rtShaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+    rtShaderGroup.generalShader = eRaygen;
+    shaderGroups.push_back(rtShaderGroup);
+
+    rtShaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+    rtShaderGroup.generalShader = eMiss;
+    shaderGroups.push_back(rtShaderGroup);
+
+    rtShaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+    rtShaderGroup.generalShader = eMiss2;
+    shaderGroups.push_back(rtShaderGroup);
+
+    rtShaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+    rtShaderGroup.generalShader = eMiss3;
+    shaderGroups.push_back(rtShaderGroup);
+
+    rtShaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+    rtShaderGroup.generalShader = VK_SHADER_UNUSED_KHR;
+    rtShaderGroup.closestHitShader = eClosestHit;
+    shaderGroups.push_back(rtShaderGroup);
+
+    VkPushConstantRange pushConstants = {
+        VK_SHADER_STAGE_RAYGEN_BIT_KHR |
+        VK_SHADER_STAGE_MISS_BIT_KHR |
+        VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,                        // stageFlags
+        0,                                                          // offset
+        sizeof(RtPushConstants)                                     // size
+    };
+
+    VkPipelineLayoutCreateInfo layoutCreateInfo{
+        VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,              // sType
+        nullptr,                                                    // pNext
+        0,                                                          // flags
+        rtDescSetLayouts.size(),                                    // setLayoutCount
+        rtDescSetLayouts.data(),                                    // pSetLayouts
+        1,                                                          // pushConstantRangeCount
+        &pushConstants                                              // pPushConstantRanges
+    };
+
+    if (vkCreatePipelineLayout(m_Device, &layoutCreateInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
+        throw std::runtime_error("cannot create pipeline layout");
+    }
+
+    VkRayTracingPipelineCreateInfoKHR pipelineCreateInfo{
+        VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,     // sType
+        nullptr,                                                    // pNext
+        0,                                                          // flags
+        static_cast<uint32_t>(stages.size()),                       // stageCount
+        stages.data(),                                              // pStages
+        static_cast<uint32_t>(shaderGroups.size()),                 // groupCount
+        shaderGroups.data(),                                        // pGroups
+        2,                                                          // maxPipelineRayRecursionDepth
+        nullptr,                                                    // pLibraryInfo
+        nullptr,                                                    // pLibraryInterface
+        nullptr,                                                    // pDynamicState
+        pipelineLayout,                                             // layout
+        VK_NULL_HANDLE,                                             // basePipelineHandle
+        0                                                           // basePipelineIndex
+    };
+
+    vkCreateRayTracingPipelinesKHR(m_Device, {}, {}, 1, &pipelineCreateInfo, nullptr, &rtPipeline);
+
+    for (auto &s : stages) {
+        vkDestroyShaderModule(m_Device, s.module, nullptr);
+    }
+}
+
+template <class integral>
+constexpr integral alignUp(integral x, size_t a) noexcept {
+    return integral((x + (integral(a) - 1)) & ~integral(a - 1));
+}
+
+void VulkanFactory::CreateShaderBindingTable(VkPipeline& rtPipeline, VkStridedDeviceAddressRegionKHR& rgenRegion, VkStridedDeviceAddressRegionKHR& missRegion,
+                                VkStridedDeviceAddressRegionKHR& hitRegion, VkStridedDeviceAddressRegionKHR& callRegion, VkBuffer& sbtBuffer, VkDeviceMemory& sbtMemory) {
+    uint32_t missCount{ 3 };
+    uint32_t hitCount{ 1 };
+    uint32_t handleCount{ 1 + missCount + hitCount };
+
+    VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtProperties{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };
+    VkPhysicalDeviceProperties2 deviceProperties2 = {
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,        // sType
+        &rtProperties,                                         // pNext
+        {}                                                     // properties
+    };
+    vkGetPhysicalDeviceProperties2(m_PhysicalDevice, &deviceProperties2);
+
+    uint32_t handleSize = rtProperties.shaderGroupHandleSize;
+    uint32_t handleSizeAligned = alignUp(handleSize, rtProperties.shaderGroupHandleAlignment);
+
+    rgenRegion.size = rgenRegion.stride = alignUp(handleSizeAligned, rtProperties.shaderGroupBaseAlignment);
+    missRegion.stride = handleSizeAligned;
+    missRegion.size = alignUp(missCount * handleSizeAligned, rtProperties.shaderGroupBaseAlignment);
+    hitRegion.stride = handleSizeAligned;
+    hitRegion.size = alignUp(hitCount * handleSizeAligned, rtProperties.shaderGroupBaseAlignment);
+
+    uint32_t dataSize = handleCount * handleSize;
+    std::vector<uint8_t> handles(dataSize);
+
+    if (vkGetRayTracingShaderGroupHandlesKHR(m_Device, rtPipeline, 0, handleCount, dataSize, handles.data()) != VK_SUCCESS) {
+        throw std::runtime_error("cannot create rt shader groups");
+    }
+
+    VkDeviceSize sbtSize = rgenRegion.size + missRegion.size + hitRegion.size + callRegion.size;
+    
+    CreateBuffer(sbtSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, sbtBuffer, sbtMemory);
+
+    VkDeviceAddress sbtAddress = GetBufferAddress(sbtBuffer);
+    rgenRegion.deviceAddress = sbtAddress;
+    missRegion.deviceAddress = sbtAddress + rgenRegion.size;
+    hitRegion.deviceAddress = sbtAddress + rgenRegion.size + missRegion.size;
+
+    auto getHandle = [&](uint32_t i) { return handles.data() + i * handleSize; };
+
+    uint8_t *pSBTBuffer{ nullptr };
+    vkMapMemory(m_Device, sbtMemory, 0, sbtSize, 0, reinterpret_cast<void**>(&pSBTBuffer));
+    uint8_t *pData{ pSBTBuffer };
+    uint32_t handleIdx{ 0 };
+
+    memcpy(pData, getHandle(handleIdx++), handleSize);
+
+    pData = pSBTBuffer + rgenRegion.size;
+    for (uint32_t i = 0; i < missCount; ++i) {
+        memcpy(pData, getHandle(handleIdx++), handleSize);
+        pData += missRegion.stride;
+    }
+
+    pData = pSBTBuffer + rgenRegion.size + missRegion.size;
+    for (uint32_t i = 0; i < hitCount; ++i) {
+        memcpy(pData, getHandle(handleIdx++), handleSize);
+        pData += hitRegion.stride;
+    }
+
+    vkUnmapMemory(m_Device, sbtMemory);
+}
+
+void VulkanFactory::TraceRays(VkCommandBuffer cmdBuff, const VkStridedDeviceAddressRegionKHR *rgenRegion, const VkStridedDeviceAddressRegionKHR *missRegion, const VkStridedDeviceAddressRegionKHR *hitRegion, const VkStridedDeviceAddressRegionKHR *callRegion) {
+    vkCmdTraceRaysKHR(cmdBuff, rgenRegion, missRegion, hitRegion, callRegion, m_SwapChainExtent.width, m_SwapChainExtent.height, 1);
 }

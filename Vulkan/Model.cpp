@@ -32,7 +32,7 @@ void Model::UpdateWindowSize() {
     CreateDescriptorPool();
     CreateGraphicsPipeline();
     m_VkFactory->CreateTextureSampler(m_TextureSampler);
-    m_VkFactory->CreateDescriptorSets(m_DescriptorSets, m_TextureImageView, m_TextureSampler, m_DescriptorSetLayout, m_DescriptorPool);
+    m_VkFactory->CreateTextureDescriptorSets(m_DescriptorSets, m_TextureImageView, m_TextureSampler, m_DescriptorSetLayout, m_DescriptorPool);
     m_VkFactory->AllocateSecondaryCommandBuffer(m_CommandBuffers);
 }
 
@@ -59,12 +59,12 @@ void Model::CreateTextureImage(std::string texPath) {
 
     stbi_image_free(pixels);
 
-    m_VkFactory->CreateImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
+    m_VkFactory->CreateImage(texWidth, texHeight, 1, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         m_TextureImage, m_TextureImageMemory, 1);
 
     m_VkFactory->TransitionImageLayout(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1);
-    m_VkFactory->CopyBufferToImage(stagingBuffer, m_TextureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 0);
+    m_VkFactory->CopyBufferToImage(stagingBuffer, m_TextureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1, 0);
     m_VkFactory->TransitionImageLayout(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
 
     vkDestroyBuffer(m_VkFactory->GetDevice(), stagingBuffer, nullptr);
@@ -90,7 +90,7 @@ void Model::LoadModel(std::string modelPath) {
 
     for (auto& shape : shapes) {
         for (const auto& index : shape.mesh.indices) {
-            Vertex vertex;
+            Vertex vertex{};
 
             vertex.pos = {
                 attrib.vertices[3 * index.vertex_index + 0],

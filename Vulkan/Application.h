@@ -5,6 +5,7 @@
 #include "Model.h"
 #include "Camera.h"
 #include "VulkanFactory.h"
+#include "RaytracedModel.h"
 
 #include "Skybox.h"
 #include "ReflectiveModel.h"
@@ -21,7 +22,7 @@ public:
 private:
     VulkanFactory* m_VkFactory;
 
-    std::vector<DrawableInterface*> m_Models;
+    std::vector<RaytracedModel*> m_Models;
     Camera m_Camera;
     LightsPositions m_Lights;
     float m_LightsMoveX = 0.0f, m_LightsMoveY = 0.0f;
@@ -29,6 +30,8 @@ private:
 
     bool framebufferResized = false;
     GLFWwindow* m_Window;
+
+    bool m_rtEnabled = true;
 
     void InitWindow();
     static void FramebufferResizeCallback(GLFWwindow*, int, int);

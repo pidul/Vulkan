@@ -10,13 +10,14 @@ void Application::Run() {
     m_Lights.green = glm::vec4(std::cos(M_PI / 180 * 220), std::sin(M_PI / 180 * 220), 0.8f, 1.0f);
     m_Lights.blue = glm::vec4(std::cos(/*M_PI / 180 * 240 */0), std::sin(/*M_PI / 180 * 240*/ 0), 2.0f, 1.0f);
 
-    Skybox skybox;
-    m_Models.push_back(&skybox);
+    //Skybox skybox;
+    //m_Models.push_back(&skybox);
 
-    Model sphere({ "models/sphere.obj" }, "textures/dummy.png");
-    sphere.AddInstance(m_Lights.red, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    sphere.AddInstance(m_Lights.green, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    RaytracedModel sphere({ "models/sphere.obj" });
+    sphere.AddInstance(glm::vec3(0.0, 0.0, 0.0), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    //sphere.AddInstance(m_Lights.green, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(1.0f, 0.0f, 0.0f), false);
     //sphere.AddInstance(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    sphere.PrepareForRayTracing();
     m_Models.push_back(&sphere);
 
     /*Model tavern({ "models/viking_room.obj" }, "textures/viking_room.png");
@@ -26,13 +27,13 @@ void Application::Run() {
     //cube.AddInstance(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(0.0f, 0.0f, 1.0f), false);
     ///*cube.AddInstance(m_Lights.blue, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(0.0f, 0.0f, 1.0f), true);
     //cube.AddInstance(m_Lights.green, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(0.0f, 0.0f, 1.0f), true);*/
-    ReflectiveModel cube({ "models/cube.obj" });
-    cube.AddInstance(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(0.0f, 0.0f, 1.0f), false);
-    m_Models.push_back(&cube);
+    //ReflectiveModel cube({ "models/cube.obj" });
+    //cube.AddInstance(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(0.0f, 0.0f, 1.0f), false);
+    //m_Models.push_back(&cube);
 
     //Model skull({ "models/skull.obj", "models/jaw.obj", "models/teethUpper.obj", "models/teethLower.obj" }, "textures/dummy.png");
-    //ReflectiveModel skull({ "models/skull.obj", "models/jaw.obj", "models/teethUpper.obj", "models/teethLower.obj" });
-    //skull.AddInstance(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    //RaytracedModel skull({ "models/skull.obj", "models/jaw.obj", "models/teethUpper.obj", "models/teethLower.obj" });
+    //skull.AddInstance(glm::vec3(0.0f, 10.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f));
     //skull.AddInstance(glm::vec3(1.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
     //skull.AddInstance(glm::vec3(2.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
     //skull.AddInstance(glm::vec3(3.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
@@ -46,14 +47,15 @@ void Application::Run() {
     //skull.AddInstance(glm::vec3(-1.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
     //skull.AddInstance(glm::vec3(-2.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
     //skull.AddInstance(glm::vec3(-3.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
+    //skull.PrepareForRayTracing();
     //m_Models.push_back(&skull);
 
     /*Model helmets({ "models/helmets.obj" }, "textures/dummy.png");
     helmets.AddInstance(glm::vec3(0.0f, 0.0f, 0.5f), glm::vec3(0.2f, 0.2f, 0.2f), glm::vec3(1.0f, 0.0f, 0.0f), false);
     m_Models.push_back(&helmets);*/
 
-    m_Camera.m_Position = glm::vec3(0.0f, -1.5f, 1.0f);
-    m_Camera.m_LookAt = glm::vec3(0.0f, 0.0f, 0.8f);
+    m_Camera.m_Position = glm::vec3(0.0f, -13.0f, 0.0f);
+    m_Camera.m_LookAt = glm::vec3(0.0f, -2.0f, 0.0f);
     MainLoop();
     Cleanup();
 }
@@ -92,24 +94,6 @@ void Application::InitVulkan() {
 }
 
 void Application::RecordCommandBuffers(uint32_t index) {
-    VkCommandBufferInheritanceInfo inheritanceInfo = {
-        VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO,          // sType
-        nullptr,                                                    // pNext
-        m_VkFactory->GetRenderPass(),                               // renderPass
-        0,                                                          // subpass
-        m_VkFactory->GetFramebuffer(index),                         // framebuffer
-        VK_FALSE,                                                   // occlusionQueryEnable
-        0,                                                          // queryFlags
-        0,                                                          // pipelineStatistics
-    };
-
-    VkCommandBufferBeginInfo secondaryCmdBuffBeginInfo = {
-        VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,                // sType
-        nullptr,                                                    // pNext
-        VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT,           // flags
-        &inheritanceInfo                                            // pInheritanceInfo
-    };
-
     VkCommandBufferBeginInfo primaryCmdBuffbeginInfo = {
         VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,                // sType
         nullptr,                                                    // pNext
@@ -122,42 +106,88 @@ void Application::RecordCommandBuffers(uint32_t index) {
         throw std::runtime_error("cannot begin command buffer");
     }
 
-    std::array<VkClearValue, 2> clearColors = {};
-    clearColors[0] = { 0.0f, 0.0f, 0.0f, 1.0f };
-    // clearColors[0] = { 0.1f, 0.1f, 0.1f, 1.0f };
-    clearColors[1] = { 1.0f, 0 };
+    if (!m_rtEnabled) {
+        //VkCommandBufferInheritanceInfo inheritanceInfo = {
+        //    VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO,          // sType
+        //    nullptr,                                                    // pNext
+        //    m_VkFactory->GetRenderPass(),                               // renderPass
+        //    0,                                                          // subpass
+        //    m_VkFactory->GetFramebuffer(index),                         // framebuffer
+        //    VK_FALSE,                                                   // occlusionQueryEnable
+        //    0,                                                          // queryFlags
+        //    0,                                                          // pipelineStatistics
+        //};
 
-    VkRenderPassBeginInfo renderPassBeginInfo = {
-        VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,               // sType
-        nullptr,                                                // pNext
-        m_VkFactory->GetRenderPass(),                                           // renderPass
-        m_VkFactory->GetFramebuffer(index),                         // framebuffer
-        { { 0, 0 }, m_VkFactory->GetExtent() },                        // renderArea
-        static_cast<uint32_t>(clearColors.size()),              // clearValueCount
-        clearColors.data()                                      // pClearValues
-    };
-    static auto startTime = std::chrono::high_resolution_clock::now();
-    auto currTime = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(currTime - startTime).count();
-    glm::mat4 viewMatrix = m_Camera.GetViewMatrix();
+        //VkCommandBufferBeginInfo secondaryCmdBuffBeginInfo = {
+        //    VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,                // sType
+        //    nullptr,                                                    // pNext
+        //    VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT,           // flags
+        //    &inheritanceInfo                                            // pInheritanceInfo
+        //};
 
-    glm::mat4 lightsTranslation = glm::translate(glm::mat4(1.0f), glm::vec3(m_LightsMoveX, m_LightsMoveY, 0.0f));
-    glm::mat4 lightsRotation = glm::rotate(lightsTranslation, time * 1.0f, glm::vec3(0.0f, 0.0f, 1.0f));
-    LightsPositions lp;
-    lp.red = /*lightsRotation **/ m_Lights.red;
-    lp.green = /*lightsRotation **/ m_Lights.green;
-    lp.blue = glm::vec4(m_Camera.m_Position, 1.0f);
-    m_Models[1]->UpdateLightPosition(0, lp.red);
-    m_Models[1]->UpdateLightPosition(1, lp.green);
+        //std::array<VkClearValue, 2> clearColors = {};
+        //clearColors[0] = { 0.0f, 0.0f, 0.0f, 1.0f };
+        //// clearColors[0] = { 0.1f, 0.1f, 0.1f, 1.0f };
+        //clearColors[1] = { 1.0f, 0 };
 
-    vkCmdBeginRenderPass(m_VkFactory->GetCommandBuffer(index), &renderPassBeginInfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
-    for (auto& model : m_Models) {
-        VkCommandBuffer* secondaryCmdBuffer = model->Draw(index, &secondaryCmdBuffBeginInfo, viewMatrix, lp);
+        //VkRenderPassBeginInfo renderPassBeginInfo = {
+        //    VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,               // sType
+        //    nullptr,                                                // pNext
+        //    m_VkFactory->GetRenderPass(),                                           // renderPass
+        //    m_VkFactory->GetFramebuffer(index),                         // framebuffer
+        //    { { 0, 0 }, m_VkFactory->GetExtent() },                        // renderArea
+        //    static_cast<uint32_t>(clearColors.size()),              // clearValueCount
+        //    clearColors.data()                                      // pClearValues
+        //};
 
-        vkCmdExecuteCommands(m_VkFactory->GetCommandBuffer(index), 1, secondaryCmdBuffer);
+        //static auto startTime = std::chrono::high_resolution_clock::now();
+        //auto currTime = std::chrono::high_resolution_clock::now();
+        //float time = std::chrono::duration<float, std::chrono::seconds::period>(currTime - startTime).count();
+        //glm::mat4 viewMatrix = m_Camera.GetViewMatrix();
+
+        //glm::mat4 lightsTranslation = glm::translate(glm::mat4(1.0f), glm::vec3(m_LightsMoveX, m_LightsMoveY, 0.0f));
+        //glm::mat4 lightsRotation = glm::rotate(lightsTranslation, time * 1.0f, glm::vec3(0.0f, 0.0f, 1.0f));
+        //LightsPositions lp{
+        //    /*lightsRotation **/ m_Lights.red,
+        //    /*lightsRotation **/ m_Lights.green,
+        //    glm::vec4(m_Camera.m_Position, 1.0f)
+        //};
+        //m_Models[1]->UpdateLightPosition(0, lp.red);
+        //m_Models[1]->UpdateLightPosition(1, lp.green);
+
+        //vkCmdBeginRenderPass(m_VkFactory->GetCommandBuffer(index), &renderPassBeginInfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+        //for (auto &model : m_Models) {
+        //    VkCommandBuffer *secondaryCmdBuffer = model->Draw(index, &secondaryCmdBuffBeginInfo, viewMatrix, lp);
+
+        //    vkCmdExecuteCommands(m_VkFactory->GetCommandBuffer(index), 1, secondaryCmdBuffer);
+        //}
+
+        //vkCmdEndRenderPass(m_VkFactory->GetCommandBuffer(index));
+    } else {
+        m_Models[0]->Raytrace(m_VkFactory->GetCommandBuffer(index), m_Camera.GetViewMatrix(), index);
+
+        // postprocess
+
+        std::array<VkClearValue, 2> clearColors = {};
+        clearColors[0] = { 0.0f, 0.0f, 0.0f, 1.0f };
+        // clearColors[0] = { 0.1f, 0.1f, 0.1f, 1.0f };
+        clearColors[1] = { 1.0f, 0 };
+
+        VkRenderPassBeginInfo renderPassBeginInfo = {
+            VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,               // sType
+            nullptr,                                                // pNext
+            m_VkFactory->GetRenderPass(),                           // renderPass
+            m_VkFactory->GetFramebuffer(index),                     // framebuffer
+            { { 0, 0 }, m_VkFactory->GetExtent() },                 // renderArea
+            static_cast<uint32_t>(clearColors.size()),              // clearValueCount
+            clearColors.data()                                      // pClearValues
+        };
+
+        vkCmdBeginRenderPass(m_VkFactory->GetCommandBuffer(index), &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        m_Models[0]->Postprocess(m_VkFactory->GetCommandBuffer(index), index);
+        vkCmdEndRenderPass(m_VkFactory->GetCommandBuffer(index));
     }
 
-    vkCmdEndRenderPass(m_VkFactory->GetCommandBuffer(index));
     if (vkEndCommandBuffer(m_VkFactory->GetCommandBuffer(index)) != VK_SUCCESS) {
         throw std::runtime_error("cannot end command buffer");
     }

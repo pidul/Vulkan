@@ -8,6 +8,12 @@ struct UniformBufferObject {
     glm::mat4 projection;
 };
 
+struct RtUniformBufferObject {
+    glm::mat4 viewProj;
+    glm::mat4 viewInverse;
+    glm::mat4 projInverse;
+};
+
 struct LightsPositions {
     glm::vec4 red;
     glm::vec4 green;
@@ -39,7 +45,7 @@ struct Vertex {
             1,                                                      // location
             0,                                                      // binding
             VK_FORMAT_R32G32B32_SFLOAT,                             // format
-            offsetof(Vertex, normal)                                 // offset
+            offsetof(Vertex, normal)                                // offset
         };
         attributeDescriptions[2] = {
             2,                                                      // location
