@@ -2,7 +2,7 @@
 
 void Camera::MovePosition(MoveDirection dir) {
     glm::vec3 moveDirVector = m_Position - m_LookAt;
-    moveDirVector.z = 0.0f;
+    moveDirVector.y = 0.0f;
     moveDirVector = glm::normalize(moveDirVector);
     if (dir == MoveDirection::up) {
         m_Position -= moveDirVector * 0.1f;
@@ -15,7 +15,7 @@ void Camera::MovePosition(MoveDirection dir) {
         return;
     }
 
-    glm::vec3 perp(-moveDirVector.y, moveDirVector.x, 0.0f);
+    glm::vec3 perp = glm::vec3(moveDirVector.z, 0.0f, -moveDirVector.x);
     perp = glm::normalize(perp);
 
     if (dir == MoveDirection::left) {
@@ -30,20 +30,19 @@ void Camera::MovePosition(MoveDirection dir) {
 
 void Camera::MoveTarget(MoveDirection dir) {
     glm::vec3 moveDirVector = m_Position - m_LookAt;
-    moveDirVector.z = 0.0f;
+    moveDirVector.y = 0.0f;
     moveDirVector = glm::normalize(moveDirVector);
 
-    glm::vec3 perp(-moveDirVector.y, moveDirVector.x, 0.0f);
     if (dir == MoveDirection::up) {
-        m_LookAt.z -= 0.1f;
+        m_LookAt.y -= 0.1f;
         return;
     }
     else if (dir == MoveDirection::down) {
-        m_LookAt.z += 0.1f;
+        m_LookAt.y += 0.1f;
         return;
     }
 
-    perp = glm::vec3(-moveDirVector.y, moveDirVector.x, 0.0f);
+    glm::vec3 perp = glm::vec3(moveDirVector.z, 0.0f, -moveDirVector.x);
     perp = glm::normalize(perp);
 
     if (dir == MoveDirection::left) {

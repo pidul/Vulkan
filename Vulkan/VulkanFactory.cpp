@@ -24,6 +24,7 @@ void VulkanFactory::InitVulkan(GLFWwindow* window) {
     if (glfwCreateWindowSurface(m_VkInstance, m_Window, nullptr, &m_Surface) != VK_SUCCESS) {
         throw std::runtime_error("failed to create window surface");
     }
+    vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR = reinterpret_cast<PFN_vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR>(vkGetInstanceProcAddr(m_VkInstance, "vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR"));
     PickPhysicalDevice();
     CreateLogicalDevice();
     QueryFunctionPointers();
@@ -241,7 +242,7 @@ void VulkanFactory::PickPhysicalDevice() {
         for (const auto& queue : queueFamilies) {
             VkBool32 presentSupport = false;
             vkGetPhysicalDeviceSurfaceSupportKHR(device, i, m_Surface, &presentSupport);
-            if (queue.queueFlags & VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT) {
+            if (queue.queueFlags & VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT && queue.timestampValidBits > 0) {
                 indices = i;
                 break;
             }
@@ -260,8 +261,15 @@ void VulkanFactory::PickPhysicalDevice() {
         std::vector<VkExtensionProperties> extProperties(extensionsCount);
         vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionsCount, extProperties.data());
 
+        VkPhysicalDevicePerformanceQueryFeaturesKHR perfFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PERFORMANCE_QUERY_FEATURES_KHR };
         VkPhysicalDeviceFeatures supportedFeatures;
         vkGetPhysicalDeviceFeatures(physicalDevice, &supportedFeatures);
+        VkPhysicalDeviceFeatures2 supportedFeatures2 = {
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,           // sType
+            &perfFeatures,                                          // pNext
+            supportedFeatures                                       // features
+        };
+        vkGetPhysicalDeviceFeatures2(physicalDevice, &supportedFeatures2);
 
         std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
 
@@ -278,6 +286,7 @@ void VulkanFactory::PickPhysicalDevice() {
         }
 
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtProperties{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };
+
         VkPhysicalDeviceProperties deviceProperties{};
         VkPhysicalDeviceProperties2 deviceProperties2 = {
             VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,        // sType
@@ -290,8 +299,14 @@ void VulkanFactory::PickPhysicalDevice() {
             return false;
         }
 
+
         if (indice.has_value()) {
             m_QueueFamilyIndice = indice;
+            /*uint32_t counterCount = 0;
+            vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR(physicalDevice, m_QueueFamilyIndice.value(), &counterCount, nullptr, nullptr);
+            std::vector<VkPerformanceCounterKHR> counter(counterCount);
+            std::vector<VkPerformanceCounterDescriptionKHR> counterDesc(counterCount);
+            vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR(physicalDevice, m_QueueFamilyIndice.value(), &counterCount, counter.data(), counterDesc.data());*/
             return requiredExtensions.empty() && swapchainGood &&
                 supportedFeatures.samplerAnisotropy;
         }
@@ -323,8 +338,10 @@ void VulkanFactory::CreateLogicalDevice() {
 
     VkPhysicalDeviceFeatures deviceFeatures = {};
     deviceFeatures.samplerAnisotropy = VK_TRUE;
+
     VkPhysicalDeviceVulkan12Features vk12features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };
     vk12features.bufferDeviceAddress = VK_TRUE;
+    vk12features.hostQueryReset = VK_TRUE;
 
     VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtPipelineFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };
     rtPipelineFeatures.rayTracingPipeline = VK_TRUE;
@@ -722,6 +739,20 @@ void VulkanFactory::AllocateCommandBuffers() {
 
     if (vkAllocateCommandBuffers(m_Device, &allocateInfo, m_CommandBuffers.data()) != VK_SUCCESS) {
         throw std::runtime_error("cannot allocate command buffers");
+    }
+
+    VkQueryPoolCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+    createInfo.pNext = nullptr; // Optional
+    createInfo.flags = 0; // Reserved for future use, must be 0!
+
+    createInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
+    createInfo.queryCount = (uint32_t)(m_CommandBuffers.size() * 2);
+
+    VkResult result = vkCreateQueryPool(m_Device, &createInfo, nullptr, &m_QueryPool);
+    if (result != VK_SUCCESS)
+    {
+        throw std::runtime_error("Failed to create time query pool!");
     }
 }
 
@@ -1209,7 +1240,7 @@ void VulkanFactory::CreateGraphicsPipeline(std::vector<VkPipelineShaderStageCrea
         VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,            // sType
         nullptr,                                                    // pNext
         0,                                                          // flags
-        shaderStages.size(),                                        // stageCount
+        (uint32_t)(shaderStages.size()),                            // stageCount
         shaderStages.data(),                                        // pStages
         &vertexInput,                                               // pVertexInputState
         &inputAssemblyCreateInfo,                                   // pInputAssemblyState
@@ -1769,7 +1800,7 @@ void VulkanFactory::CreateRtPipeline(const std::vector<VkDescriptorSetLayout>& r
         VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,              // sType
         nullptr,                                                    // pNext
         0,                                                          // flags
-        rtDescSetLayouts.size(),                                    // setLayoutCount
+        (uint32_t)(rtDescSetLayouts.size()),                        // setLayoutCount
         rtDescSetLayouts.data(),                                    // pSetLayouts
         1,                                                          // pushConstantRangeCount
         &pushConstants                                              // pPushConstantRanges

@@ -176,8 +176,8 @@ void RaytracedModel::Cleanup() {
 }
 
 void RaytracedModel::PrepareForRayTracing() {
-    m_Blas = m_VkFactory->CreateBLAS(m_VertexBuffer, m_IndexBuffer, m_Vertices.size(), m_Indices.size() / 3);
-    m_Tlas = m_VkFactory->CreateTLAS(m_Instances[0].GetModelMatrix(), m_VkFactory->GetAccelerationStructureAddress(m_Blas.as), m_Vertices.size());
+    m_Blas = m_VkFactory->CreateBLAS(m_VertexBuffer, m_IndexBuffer, (uint32_t)(m_Vertices.size()), (uint32_t)(m_Indices.size() / 3));
+    m_Tlas = m_VkFactory->CreateTLAS(m_Instances[0].GetModelMatrix(), m_VkFactory->GetAccelerationStructureAddress(m_Blas.as), (uint32_t)(m_Vertices.size()));
 
     std::vector<VkDescriptorPoolSize> descrPoolSize = {
         {
@@ -203,7 +203,7 @@ void RaytracedModel::PrepareForRayTracing() {
     m_VkFactory->CreateShaderBindingTable(m_RtPipeline, m_RgenRegion, m_MissRegion, m_HitRegion, m_CallRegion, m_RtSBTBuffer, m_RtSBTBufferMemory);
 }
 
-void RaytracedModel::Raytrace(VkCommandBuffer cmdBuff, glm::mat4 viewMatrix, uint32_t index) {
+void RaytracedModel::Raytrace(VkCommandBuffer cmdBuff, glm::mat4 viewMatrix, uint32_t index, bool useLtc) {
     RtUniformBufferObject ubo{};
     glm::mat4 proj = glm::perspective(glm::radians(60.0f), m_Width / (float)m_Height, 0.1f, 200.0f);
     proj[1][1] *= -1;
@@ -248,19 +248,17 @@ void RaytracedModel::Raytrace(VkCommandBuffer cmdBuff, glm::mat4 viewMatrix, uin
         &storageBufferInfo,                                     // pBufferInfo
         nullptr                                                 // pTexelBufferView
     };
-    vkUpdateDescriptorSets(m_VkFactory->GetDevice(), writeDescriptorSet.size(), writeDescriptorSet.data(), 0, nullptr);
+    vkUpdateDescriptorSets(m_VkFactory->GetDevice(), (uint32_t)(writeDescriptorSet.size()), writeDescriptorSet.data(), 0, nullptr);
 
-    RtPushConstants rtPC{
-        glm::vec3{0.0, -13.0, 0.0},
-        100
-    };
+    m_RtPC.useLtc = useLtc;
+
     std::vector<VkDescriptorSet> descSets{ m_RtDescriptorSets[index], m_DescriptorSets[index], m_SkyboxDescriptorSets[index], m_LTCDescriptorSets[index] };
     vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_RtPipeline);
     vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_RtPipelineLayout, 0,
-                        descSets.size(), descSets.data(), 0, nullptr);
+        (uint32_t)(descSets.size()), descSets.data(), 0, nullptr);
     vkCmdPushConstants(cmdBuff, m_RtPipelineLayout,
         VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR,
-        0, sizeof(RtPushConstants), &rtPC);
+        0, sizeof(RtPushConstants), &m_RtPC);
 
     m_VkFactory->TraceRays(cmdBuff, &m_RgenRegion, &m_MissRegion, &m_HitRegion, &m_CallRegion);
 }
@@ -528,7 +526,7 @@ void RaytracedModel::CreateLTCImage() {
     for (uint32_t c = 0; c < stagingBuffer.size(); ++c) {
         m_VkFactory->CreateBuffer(LTCsize / 3, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
             stagingBuffer[c], stagingBufferMemory[c]);
-        vkMapMemory(m_VkFactory->GetDevice(), stagingBufferMemory[c], 0, LTCsize, 0, (void**)&data);
+        vkMapMemory(m_VkFactory->GetDevice(), stagingBufferMemory[c], 0, LTCsize / 3, 0, (void**)&data);
         for (int i4 = 0; i4 < 8; ++i4) {
             for (int i3 = 0; i3 < 8; ++i3) {
                 for (int i2 = 0; i2 < 8; ++i2) {
@@ -541,13 +539,13 @@ void RaytracedModel::CreateLTCImage() {
             }
         }
         vkUnmapMemory(m_VkFactory->GetDevice(), stagingBufferMemory[c]);
-        m_VkFactory->CreateImage(64, 8, 8, VK_FORMAT_R32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        m_VkFactory->CreateImage(64, 8, 8, VK_FORMAT_R32G32B32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_LTCImage[c], m_LTCImageMemory[c], 1);
-        m_VkFactory->TransitionImageLayout(m_LTCImage[c], VK_FORMAT_R32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1);
+        m_VkFactory->TransitionImageLayout(m_LTCImage[c], VK_FORMAT_R32G32B32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1);
         m_VkFactory->CopyBufferToImage(stagingBuffer[c], m_LTCImage[c], 64, 8, 8, 0);
-        m_VkFactory->TransitionImageLayout(m_LTCImage[c], VK_FORMAT_R32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
+        m_VkFactory->TransitionImageLayout(m_LTCImage[c], VK_FORMAT_R32G32B32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
 
-        m_LTCImageView[c] = m_VkFactory->CreateImageView(m_LTCImage[c], VK_FORMAT_R32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_3D, 1);
+        m_LTCImageView[c] = m_VkFactory->CreateImageView(m_LTCImage[c], VK_FORMAT_R32G32B32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_3D, 1);
         vkFreeMemory(m_VkFactory->GetDevice(), stagingBufferMemory[c], nullptr);
         vkDestroyBuffer(m_VkFactory->GetDevice(), stagingBuffer[c], nullptr);
     }

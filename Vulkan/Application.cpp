@@ -13,12 +13,12 @@ void Application::Run() {
     //Skybox skybox;
     //m_Models.push_back(&skybox);
 
-    RaytracedModel sphere({ "models/sphere.obj" });
-    sphere.AddInstance(glm::vec3(0.0, 0.0, 0.0), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    //RaytracedModel sphere({ "models/sphere.obj" });
+    //sphere.AddInstance(glm::vec3(0.0, 0.0, 0.0), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 0.0f, 0.0f));
     //sphere.AddInstance(m_Lights.green, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(1.0f, 0.0f, 0.0f), false);
     //sphere.AddInstance(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    sphere.PrepareForRayTracing();
-    m_Models.push_back(&sphere);
+    //sphere.PrepareForRayTracing();
+    //m_Models.push_back(&sphere);
 
     /*Model tavern({ "models/viking_room.obj" }, "textures/viking_room.png");
     tavern.AddInstance(glm::vec3(-1.0f, -1.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f), false);
@@ -32,8 +32,8 @@ void Application::Run() {
     //m_Models.push_back(&cube);
 
     //Model skull({ "models/skull.obj", "models/jaw.obj", "models/teethUpper.obj", "models/teethLower.obj" }, "textures/dummy.png");
-    //RaytracedModel skull({ "models/skull.obj", "models/jaw.obj", "models/teethUpper.obj", "models/teethLower.obj" });
-    //skull.AddInstance(glm::vec3(0.0f, 10.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f));
+    RaytracedModel skull({ "models/skull.obj", "models/jaw.obj", "models/teethUpper.obj", "models/teethLower.obj" });
+    skull.AddInstance(glm::vec3(0.0f, 10.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f));
     //skull.AddInstance(glm::vec3(1.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
     //skull.AddInstance(glm::vec3(2.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
     //skull.AddInstance(glm::vec3(3.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
@@ -47,15 +47,15 @@ void Application::Run() {
     //skull.AddInstance(glm::vec3(-1.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
     //skull.AddInstance(glm::vec3(-2.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
     //skull.AddInstance(glm::vec3(-3.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    //skull.PrepareForRayTracing();
-    //m_Models.push_back(&skull);
+    skull.PrepareForRayTracing();
+    m_Models.push_back(&skull);
 
     /*Model helmets({ "models/helmets.obj" }, "textures/dummy.png");
     helmets.AddInstance(glm::vec3(0.0f, 0.0f, 0.5f), glm::vec3(0.2f, 0.2f, 0.2f), glm::vec3(1.0f, 0.0f, 0.0f), false);
     m_Models.push_back(&helmets);*/
 
-    m_Camera.m_Position = glm::vec3(0.0f, -13.0f, 0.0f);
-    m_Camera.m_LookAt = glm::vec3(0.0f, -2.0f, 0.0f);
+    m_Camera.m_Position = glm::vec3(0.0f, 0.0f, 13.0f);
+    m_Camera.m_LookAt = glm::vec3(0.0f, 0.0, 2.0f);
     MainLoop();
     Cleanup();
 }
@@ -81,7 +81,7 @@ void Application::InitWindow() {
 
     m_IsFullscreen = false;
     const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-    m_Window = glfwCreateWindow(DEFAULT_WIDTH, DEFAULT_HEIGHT, "Vulkan for PIZI 2021", nullptr, nullptr);
+    m_Window = glfwCreateWindow(DEFAULT_WIDTH, DEFAULT_HEIGHT, "Vulkan master thesis", nullptr, nullptr);
     glfwSetWindowUserPointer(m_Window, this);
     glfwSetKeyCallback(m_Window, KeyboardInputCallback);
     glfwSetCursorPosCallback(m_Window, MouseInputCallback);
@@ -105,7 +105,7 @@ void Application::RecordCommandBuffers(uint32_t index) {
     if (vkBeginCommandBuffer(m_VkFactory->GetCommandBuffer(index), &primaryCmdBuffbeginInfo) != VK_SUCCESS) {
         throw std::runtime_error("cannot begin command buffer");
     }
-
+    vkCmdResetQueryPool(m_VkFactory->GetCommandBuffer(index), m_VkFactory->GetQueryPool(), index * 2, 2);
     if (!m_rtEnabled) {
         //VkCommandBufferInheritanceInfo inheritanceInfo = {
         //    VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO,          // sType
@@ -164,7 +164,8 @@ void Application::RecordCommandBuffers(uint32_t index) {
 
         //vkCmdEndRenderPass(m_VkFactory->GetCommandBuffer(index));
     } else {
-        m_Models[0]->Raytrace(m_VkFactory->GetCommandBuffer(index), m_Camera.GetViewMatrix(), index);
+        vkCmdWriteTimestamp(m_VkFactory->GetCommandBuffer(index), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_VkFactory->GetQueryPool(), index * 2);
+        m_Models[0]->Raytrace(m_VkFactory->GetCommandBuffer(index), m_Camera.GetViewMatrix(), index, m_UseLtc);
 
         // postprocess
 
@@ -186,6 +187,7 @@ void Application::RecordCommandBuffers(uint32_t index) {
         vkCmdBeginRenderPass(m_VkFactory->GetCommandBuffer(index), &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
         m_Models[0]->Postprocess(m_VkFactory->GetCommandBuffer(index), index);
         vkCmdEndRenderPass(m_VkFactory->GetCommandBuffer(index));
+        vkCmdWriteTimestamp(m_VkFactory->GetCommandBuffer(index), VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_VkFactory->GetQueryPool(), index * 2 + 1);
     }
 
     if (vkEndCommandBuffer(m_VkFactory->GetCommandBuffer(index)) != VK_SUCCESS) {
@@ -273,6 +275,10 @@ void Application::KeyboardInputCallback(GLFWwindow* window, int key, int scancod
     if (state == GLFW_PRESS) {
         app->m_LightsMoveY -= 0.1f;
     }
+    state = glfwGetKey(window, GLFW_KEY_R);
+    if (state == GLFW_PRESS) {
+        app->m_UseLtc = !app->m_UseLtc;
+    }
     if (updateLights) {
         app->m_Lights.red =   glm::vec4(radius * std::cos(0), radius * std::sin(0), app->m_Lights.red.z, 1.0f);
         app->m_Lights.green = glm::vec4(radius * std::cos(M_PI / 180 * 120), radius * std::sin(M_PI / 180 * 120), app->m_Lights.green.z, 1.0f);
@@ -332,6 +338,10 @@ void Application::DrawFrame() {
 
     if (vkWaitForFences(m_VkFactory->GetDevice(), 1, &m_VkFactory->GetCmdBuffFence(imageIndex), VK_TRUE, 100000000) == VK_TIMEOUT) {
         std::cout << "vkWaitForFences timeouted!\n";
+    }
+
+    if (frameCount++ > 2) {
+        m_VkFactory->FetchRenderTimeResults(imageIndex);
     }
 
     RecordCommandBuffers(imageIndex);

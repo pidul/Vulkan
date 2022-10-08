@@ -6,5 +6,5 @@ layout(location = 0) rayPayloadInEXT hitpayload{ vec3 hitValue; } prd;
 layout(set = 2, binding = 0) uniform samplerCube Cubemap;
 
 void main() {
-  prd.hitValue = textureLod(Cubemap, gl_WorldRayDirectionEXT.xzy, 0.0).xyz;
+  prd.hitValue = textureLod(Cubemap, gl_WorldRayDirectionEXT, 0.0).xyz;
 }

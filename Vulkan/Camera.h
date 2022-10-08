@@ -16,6 +16,6 @@ public:
     void MovePosition(MoveDirection dir);
     void MoveTarget(MoveDirection dir);
     glm::mat4 GetViewMatrix() {
-        return glm::lookAt(m_Position, m_LookAt, glm::vec3(0.0f, 0.0f, 1.0f));
+        return glm::lookAt(m_Position, m_LookAt, glm::vec3(0.0f, 1.0f, 0.0f));
     }
 };

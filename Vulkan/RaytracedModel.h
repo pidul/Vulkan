@@ -22,7 +22,7 @@ public:
 
     void PrepareForRayTracing();
 
-    void Raytrace(VkCommandBuffer cmdBuff, glm::mat4 viewMatrix, uint32_t index);
+    void Raytrace(VkCommandBuffer cmdBuff, glm::mat4 viewMatrix, uint32_t index, bool useLtc);
     void Postprocess(VkCommandBuffer cmdBuff, uint32_t idx);
 
 private:
@@ -36,7 +36,7 @@ private:
             glm::mat4 mat(1.0f);
             mat = glm::translate(mat, m_Translation);
             mat = glm::scale(mat, m_Scale);
-            mat = glm::rotate(mat, glm::radians(90.0f), m_Rotation);
+            //mat = glm::rotate(mat, glm::radians(90.0f), m_Rotation);
             return glm::inverse(mat);
         }
     };
@@ -100,6 +100,14 @@ private:
     VkStridedDeviceAddressRegionKHR m_MissRegion{};
     VkStridedDeviceAddressRegionKHR m_HitRegion{};
     VkStridedDeviceAddressRegionKHR m_CallRegion{};
+
+    RtPushConstants m_RtPC{
+        glm::vec3{0.0, -13.0, 0.0},
+        100,
+        true,
+        0.1f,
+        0.1f
+    };
 
     void LoadModel(std::string);
     void CreateVertexBuffer();
