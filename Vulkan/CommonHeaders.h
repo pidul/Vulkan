@@ -30,6 +30,8 @@
 #include <set>
 #include <mutex>
 
+//#define TESTING
+
 typedef std::optional<uint32_t> QueueFamilyIndices;
 
 const uint32_t DEFAULT_WIDTH = 800;

@@ -45,7 +45,7 @@ layout(push_constant) uniform constants {
     float ay;
 } pc;
 
-vec3 ownColor = vec3(0.4, 0.4, 0.4);
+vec3 ownColor = vec3(0.8, 0.8, 0.8);
 float e = 2.71828, pi = 3.1415926535897932384626433832795;
 
 float cos_theta(const vec3 w)       { return w.z; }
@@ -66,48 +66,11 @@ float random( vec2 p ) {
     return fract( cos( dot(p,K1) ) * 12345.6789 );
 }
 
-vec3 getPerpendicularVector(vec3 u)
-{
-    vec3 a = abs(u);
-    uint xm = ((a.x - a.y)<0 && (a.x - a.z)<0) ? 1 : 0;
-    uint ym = (a.y - a.z)<0 ? (1 ^ xm) : 0;
-    uint zm = 1 ^ (xm | ym);
-    return cross(u, vec3(xm, ym, zm));
-}
-
 vec3 schlickFresnel(float LdotH, float roughness) {
     float ior = 0.18104 ; // indice of refraction for gold
     vec3 f0 = vec3(pow(ior - 1, 2) / pow(ior + 1, 2));
     f0 = mix(f0, ownColor, roughness);
     return f0 + (vec3(1.0) - f0) * pow(1.0 - LdotH, 5);
-}
-
-vec3 cookTorrance(vec3 L, vec3 E, vec3 N, float metalicness) {
-    vec3 H = normalize(L + E);
-    float cosAlpha = dot(N, H);
-    float cosTheta = dot(E, H);
-
-    // D
-    float eExponent = pow(tan(acos(cosAlpha)) / metalicness, 2) * -1;
-    float D = (1.0 / (pow(metalicness, 2) * pow(cosAlpha, 4))) * pow(e, eExponent);
-
-    // G
-    float G = min(min(1.0, (2.0 * cosAlpha * dot(N, E) / cosTheta)), (2.0 * cosAlpha * dot(N, L) / cosTheta));
-    G = clamp(G, 0, 1);
-
-    // F using Schlick approx
-    vec3 fresnel = schlickFresnel(cosTheta, metalicness);
-
-    return (fresnel / pi) * (D * G / (dot(N, L) * dot(N, E)));
-}
-
-float ggxNormalDistribution(float NdotH, float roughness) {
-    float a2 = roughness * roughness;
-    float d = ((NdotH * a2 - NdotH) * NdotH + 1);
-    if (d == 0) {
-        d = 0.0000000001;
-    }
-    return a2 / (d * d * pi);
 }
 
 float ggxP22Anisotropic(float x, float y, float ax, float ay) {
@@ -130,43 +93,52 @@ float ggxNDFanisotropic(vec3 omegaH, float ax, float ay) {
 }
 
 mat3 orthonormalBasis(vec3 N) {
-    vec3 f, r;
-    if (N.z < -0.999999) {
-        f = vec3(0, -1, 0);
-        r = vec3(-1, 0, 0);
-    } else {
-        float a = 1.0 / (1.0 + N.z);
-        float b = -N.x * N.y * a;
-        f = normalize(vec3(1.0 - N.x * N.x * a, b, -N.x));
-        r = normalize(vec3(b, 1 - N.y * N.y * a, -N.y));
-    }
-    return mat3(f, r, N);
+    //vec3 f, r;
+    //if (N.z < -0.999999) {
+    //    f = vec3(0, -1, 0);
+    //    r = vec3(-1, 0, 0);
+    //} else {
+    //    float a = 1.0 / (1.0 + N.z);
+    //    float b = -N.x * N.y * a;
+    //    f = normalize(vec3(1.0 - N.x * N.x * a, b, -N.x));
+    //    r = normalize(vec3(b, 1 - N.y * N.y * a, -N.y));
+    //}
+    //return mat3(f, r, N);
+
+    vec3 wy = normalize(cross(N, vec3(1, 0, 0)));
+    vec3 wx = normalize(cross(wy, N));
+    return mat3(wx, wy, N);
 }
 
 float lambdaGGXanisotropic(vec3 omega, float ax, float ay) {
-    float a = (ax * ax * omega.x * omega.x + ay * ay * omega.y * omega.y) / (omega.z * omega.z);
-    return 0.5 * (-1.0 + sqrt(1.0 + a));
+    float cos_phi = cos_phi(omega);
+    float sin_phi = sin_phi(omega);
+    float alpha_o = sqrt(cos_phi * cos_phi * ax * ax + sin_phi * sin_phi * ay * ay);
+    float a = 1.0 / (alpha_o * tan_theta(omega));
+    return 0.5 * (-1.0 + sqrt(1.0 + 1.0 / (a*a)));
 }
-vec3 anisotropicGGX(vec3 wi, vec3 wo, vec3 wg, float alphaX, float alphaY) {
-    float cosPhi = cos_phi(wi);
-    float cos2Phi = cosPhi * cosPhi;
-    float sinPhi = sin_phi(wi);
-    float sin2Phi = sinPhi * sinPhi;
 
-    float alphaX2 = alphaX * alphaX;
-    float alphaY2 = alphaY * alphaY;
+vec3 anisotropicGGX(vec3 L, vec3 E, vec3 N, float roughnessX, float roughnessY) {
+    mat3 TBN = orthonormalBasis(N);
+    mat3 TBN_t = transpose(TBN);
+    vec3 wo = normalize(TBN_t * E);
+    vec3 wi = normalize(TBN_t * L);
+    vec3 wg = normalize(TBN_t * N);
+    vec3 wh = normalize(wo + wi);
 
-    float sinTheta = sin_theta(wi);
-    float cosTheta = cos_theta(wi);
-    float tanTheta = tan_theta(wi);
+    float wi_dot_wh = clamp(dot(wi, wh), 0.0, 1.0);
+    float wg_dot_wi = clamp(cos_theta(wi), 0.0, 1.0);
 
-    vec3 wm = normalize(vec3(sinPhi * cosTheta, sinPhi * sinTheta, cosPhi));
+    float ax = roughnessX * roughnessY;
+    float ay = roughnessY * roughnessY;
 
-    vec3 F = schlickFresnel(dot(wi, wm), 0.1 /*metalicness*/);
-    float den = 1 + tanTheta * tanTheta * (cos2Phi / alphaX2 + sin2Phi / alphaY2);
-    float D = 1 / (pi * alphaX * alphaY * cosTheta * cosTheta * cosTheta * cosTheta * den * den);
-    float G = 1 / (1 + lambdaGGXanisotropic(wi, alphaX, alphaY) + lambdaGGXanisotropic(wo, alphaX, alphaY));
-    return D * G * F / (4.0 * cos_theta(wi) * cos_theta(wo));
+    vec3 F = schlickFresnel(wi_dot_wh, 0.6 /*metalicness*/);
+    float lambda_wo = lambdaGGXanisotropic(wo, ax, ay);
+    float lambda_wi = lambdaGGXanisotropic(wi, ax, ay);
+    float D = ggxNDFanisotropic(wh, ax, ay);
+    float G = 1.0 / (1.0 + lambda_wo + lambda_wi);
+
+    return wg_dot_wi * vec3(D * G /* F*/) / (4.0 * cos_theta(wi) * cos_theta(wo));
 }
 
 mat3 Lerp(mat3 a, mat3 b, float u)
@@ -185,15 +157,15 @@ mat3 FetchData_Tex3D(vec3 P)
 
 mat3 LtcMatrix_Tex3D(vec4 P)
 {
-    const float ws = P.w * 7.0f;
+    const float ws = P.z * 8.0f;
     const float ws_f = floor(ws);
-    const float ws_c = min(floor(ws + 1.0f), 7.0f);
+    const float ws_c = min(floor(ws + 1.0f), 8.0f);
     const float w = fract(ws);
 
-    const float x = (P.x * 7.0 + 0.5) / 8.0;
-    const float y = (P.y * 7.0 + 0.5) / 8.0;
-    const float z1 = ((P.z * 7.0 + 8.0 * ws_f + 0.5) / 64.0);
-    const float z2 = ((P.z * 7.0 + 8.0 * ws_c + 0.5) / 64.0);
+    const float x = P.x;
+    const float y = P.y;
+    const float z1 = (7.0 * ws_f + P.w * 8.0) / 64.0;
+    const float z2 = (7.0 * ws_c + P.w * 8.0) / 64.0;
 
     const mat3 m1 = FetchData_Tex3D(vec3(x, y, z1));
     const mat3 m2 = FetchData_Tex3D(vec3(x, y, z2));
@@ -202,56 +174,51 @@ mat3 LtcMatrix_Tex3D(vec4 P)
 }
 
 void LtcMatrix(vec3 wo, float alphaX, float alphaY, out mat3 ltcMatrix) {
-    float phiO = acos(wo.z);
+    float thetaO = acos(cos_theta(wo));
     bool flipConfig = alphaY > alphaX;
-    float thetaO = atan(wo.y, wo.x);
-    thetaO = flipConfig ? pi / 2.0 - thetaO : thetaO;
-    thetaO = thetaO >= 0.0 ? thetaO : thetaO + 2.0 * pi;
-    float u0 = ((flipConfig ? alphaY : alphaX) - 1e-3) / (1.0 - 1e-3);
-    float u1 = (flipConfig ? alphaX / alphaY : alphaY / alphaX);
-    float u2 = thetaO / pi * 2;
+    float phiO = atan(wo.y, wo.x);
+    phiO = flipConfig ? pi / 2.0 - phiO : phiO;
+    phiO = phiO >= 0.0 ? phiO : phiO + 2.0 * pi;
+    float u0 = flipConfig ? alphaY : alphaX;
+    float u1 = flipConfig ? alphaX / alphaY : alphaY / alphaX;
+    float u2 = thetaO / pi * 0.5;
+    float u3;
+
+    mat3 flip = mat3(1.0, 0.0, 0.0,
+                     0.0, 1.0, 0.0,
+                     0.0, 0.0, 1.0);
 
     if (phiO < pi * 0.5) {
-        float u3 = phiO / (pi * 0.5);
-        vec4 u = vec4(u3, u2, u1, u0);
-
-        ltcMatrix = LtcMatrix_Tex3D(u);
+        u3 = phiO / (pi * 0.5);
     } else if (phiO < pi) {
-        float u3 = (pi - phiO) / (pi * 0.5);
-        vec4 u = vec4(u3, u2, u1, u0);
-        mat3 flip = mat3(-1.0, 0.0, 0.0,
-                          0.0, 1.0, 0.0,
-                          0.0, 0.0, 1.0);
-
-        ltcMatrix = flip * LtcMatrix_Tex3D(u);
+        u3 = (pi - phiO) / (pi * 0.5);
+        flip = mat3(-1.0, 0.0, 0.0,
+                     0.0, 1.0, 0.0,
+                     0.0, 0.0, 1.0);
     } else if (phiO < pi * 1.5) {
-        float u3 = (phiO - pi) / (pi * 0.5f);
-        vec4 u = vec4(u3, u2, u1, u0);
-        mat3 flip = mat3(-1.0, 0.0, 0.0,
-                          0.0, -1.0, 0.0,
-                          0.0, 0.0, 1.0);
-
-        ltcMatrix = flip * LtcMatrix_Tex3D(u);
+        u3 = (phiO - pi) / (pi * 0.5f);
+        flip = mat3(-1.0, 0.0, 0.0,
+                     0.0, -1.0, 0.0,
+                     0.0, 0.0, 1.0);
     } else if (phiO < pi * 2.0) {
-        float u3 = (2.0f * pi - phiO) / (pi * 0.5f);
-        vec4 u = vec4(u3, u2, u1, u0);
-        mat3 flip = mat3(1.0, 0.0, 0.0,
-                         0.0, -1.0, 0.0,
-                         0.0, 0.0, 1.0);
-
-        ltcMatrix = flip * LtcMatrix_Tex3D(u);
+        u3 = (2.0f * pi - phiO) / (pi * 0.5f);
+        flip = mat3(1.0, 0.0, 0.0,
+                    0.0, -1.0, 0.0,
+                    0.0, 0.0, 1.0);
     }
+    vec4 u = vec4(u0, u1, u2, u3);
+    ltcMatrix = LtcMatrix_Tex3D(u);
     if (flipConfig) {
-        const mat3 rotMatrix = mat3(0, +1, 0,
-                                    +1, 0, 0,
-                                    0,  0, 1);
+        const mat3 rotMatrix = mat3(0, 1, 0,
+                                    1, 0, 0,
+                                    0, 0, 1);
         ltcMatrix = rotMatrix * ltcMatrix;
     }
 }
 
 void main() {
-float alphaX = pc.ax;
-float alphaY = pc.ay;
+    float alphaX = pc.ax;
+    float alphaY = pc.ay;
     Addresses  address = addr.a[gl_InstanceCustomIndexEXT];
     Indices    indices     = Indices(address.indexAddress);
     Vertices   vertices    = Vertices(address.vertexAddress);
@@ -282,6 +249,7 @@ float alphaY = pc.ay;
     relfect.len = gl_HitTEXT * 2;
 
     vec2 randSeed = vec2(random(gl_WorldRayDirectionEXT.zy), random(gl_WorldRayDirectionEXT.xz));
+
     uint samples = 512;
     for (uint i = 0; i < samples; ++i) {
         float rand1 = randSeed.x = random(randSeed);
@@ -295,58 +263,51 @@ float alphaY = pc.ay;
         if(pc.useLtc) {
             mat3 mLtc;
             LtcMatrix(wo, alphaX, alphaY, mLtc);
-            
-            float sinPhi = sqrt(rand1);
-            float x = sinPhi * cos(2.0 * pi * rand2);
-            float y = sinPhi * sin(2.0 * pi * rand2);
-            float z = sqrt(1.0 - rand1);
-            vec3 wiStd = vec3(x, y, z); // sample wo from Do
-            float doPdf = z;
 
-            vec3 wiNormalized = normalize(mLtc * wiStd);
-            vec3 wiWorld = normalize(TBN * wiNormalized);
+            float sinTheta = sqrt(rand1);
+            float x = sinTheta * cos(2.0 * pi * rand2);
+            float y = sinTheta * sin(2.0 * pi * rand2);
+            float z = sqrt(1.0 - rand1);
+
+            vec3 wiStd = vec3(x, y, z);
+            vec3 wi = normalize(mLtc * wiStd);
+
+            vec3 wiWorld = normalize(TBN * wi);
+
+            float doPdf = max(0, z) / pi;
 
             mLtc = transpose(mLtc);
             float ltcDeterminant = determinant(mLtc);
-            float wiLen = dot(wiNormalized * mLtc, wiNormalized * mLtc);
+            float wiLen = dot(wi * mLtc, wi * mLtc);
             float jacobian = ltcDeterminant / (wiLen * wiLen * wiLen);
+            float pdf = doPdf * jacobian;
 
-            outColor += textureLod(Cubemap, wiWorld, 0).xyz * 2 * anisotropicGGX(wiNormalized, wo, wg, alphaX, alphaY) * doPdf * jacobian / samples;
+            outColor += textureLod(Cubemap, wiWorld, 0).xyz * pdf / samples;
         } else {
-            float phi = atan((alphaY / alphaX) * tan(2 * pi * rand1));
-            if (rand1 > 0.25 && rand1 < 0.75) {
-                phi += pi;
-            } else if (rand1 >= 0.75) {
-                phi += 2 * pi;
-            }
-            float cosPhi = cos(phi);
-            float cos2Phi = cosPhi * cosPhi;
-            float sinPhi = sin(phi);
-            float sin2Phi = sinPhi * sinPhi;
+            vec3 vh = normalize(vec3(alphaX * wo.x, alphaY * wo.y, wo.z));
+            float lensq = vh.x * vh.x + vh.y * vh.y;
+            vec3 T1 = lensq > 0 ? vec3(-vh.y, vh.x, 0) * inversesqrt(lensq) : vec3(1.0, 0.0, 0.0);
+            vec3 T2 = cross(vh, T1);
+            float r = sqrt(rand1);
+            float phi = 2 * pi * rand2;
+            float t1 = r * cos(phi);
+            float t2 = r * sin(phi);
+            float s = 0.5 * (1.0 + vh.z);
+            t2 = (1.0 - s) * sqrt(1.0 - t1 * t1) + s * t2;
+            vec3 Nh = t1 * T1 + t2 * T2 + sqrt(max(0.0, 1.0 - t1 * t1 - t2 * t2)) * vh;
 
-            float alphaX2 = alphaX * alphaX;
-            float alphaY2 = alphaY * alphaY;
+            vec3 wm = normalize(vec3(alphaX * Nh.x, alphaY * Nh.y, max(0.0, Nh.z)));
 
-            float phiByAlphas = (cos2Phi / alphaX2 + sin2Phi / alphaY2);
-
-            float theta = atan(sqrt(rand2 / ((1 - rand2) * phiByAlphas)));
-            float sinTheta = sin(theta);
-            float cosTheta = cos(theta);
-            float tanTheta = tan(theta);
-
-            vec3 wm = normalize(vec3(sinPhi * cosTheta, sinPhi * sinTheta, cosPhi));
-
-            vec3 wi = -normalize(reflect(wo, wm));
+            vec3 wi = normalize(2.0 * dot(wm, wo) * wm - wo);
+            vec3 wh = normalize(wo + wi);
             vec3 wiWorld = normalize(TBN * wi);
+        
+            float lambda_wo = lambdaGGXanisotropic(wo, alphaX, alphaY);
+            float lambda_wi = lambdaGGXanisotropic(wi, alphaX, alphaY);
+            float D = ggxNDFanisotropic(wh, alphaX, alphaY);
+            float G = 1.0 / (1.0 + lambda_wo + lambda_wi);
 
-            float den = 1 + tanTheta * tanTheta * phiByAlphas;
-            float pdf = sinTheta / (pi * alphaX * alphaY * cosTheta * cosTheta * cosTheta * den * den);
-
-            vec3 F = schlickFresnel(dot(wi, wm), 0.1 /*metalicness*/);
-            float D = 1 / (pi * alphaX * alphaY * cosTheta * cosTheta * cosTheta * cosTheta * den * den);
-            float G = 1 / (1 + lambdaGGXanisotropic(wi, alphaX, alphaY) + lambdaGGXanisotropic(wo, alphaX, alphaY));
-            vec3 ggxBrdf = D * G * F / (4.0 * cos_theta(wi) * cos_theta(wo));
-
+            float pdf = D * dot(wm, wg);
             relfect.hitValue = vec3(0.0);
             traceRayEXT(topLevelAS,  // acceleration structure
                     flags,       // rayFlags
@@ -360,7 +321,7 @@ float alphaY = pc.ay;
                     tMax,        // ray max range
                     2            // payload (location = 2)
             );
-            outColor += relfect.hitValue * dot(wg, wi) * ggxBrdf * pdf / samples;
+            outColor += relfect.hitValue * anisotropicGGX(wiWorld, -gl_WorldRayDirectionEXT, worldNrm, alphaX, alphaY) * pdf / samples;
         }
     }
 

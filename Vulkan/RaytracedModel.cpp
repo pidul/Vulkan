@@ -15,7 +15,11 @@ RaytracedModel::RaytracedModel(std::vector<std::string> modelFilenames) :
     CreateVertexBuffer();
     CreateIndexBuffer();
     CreateDescriptorPool();
+#ifndef TESTING
     CreateTextureImage({ "textures/posx.jpg", "textures/negx.jpg", "textures/posy.jpg" , "textures/negy.jpg" , "textures/posz.jpg" , "textures/negz.jpg" });
+#else
+    CreateTextureImage({ "textures/1.png", "textures/1.png", "textures/1.png" , "textures/1.png" , "textures/2.png" , "textures/1.png" });
+#endif
     CreateLTCImage();
     m_VkFactory->CreateTextureSampler(m_TextureSampler);
     std::vector<VkDescriptorImageInfo> imageInfos;
@@ -524,28 +528,29 @@ void RaytracedModel::CreateLTCImage() {
 
     float *data{};
     for (uint32_t c = 0; c < stagingBuffer.size(); ++c) {
-        m_VkFactory->CreateBuffer(LTCsize / 3, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        m_VkFactory->CreateBuffer(LTCsize / 9 * 4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
             stagingBuffer[c], stagingBufferMemory[c]);
-        vkMapMemory(m_VkFactory->GetDevice(), stagingBufferMemory[c], 0, LTCsize / 3, 0, (void**)&data);
-        for (int i4 = 0; i4 < 8; ++i4) {
-            for (int i3 = 0; i3 < 8; ++i3) {
-                for (int i2 = 0; i2 < 8; ++i2) {
-                    for (int i1 = 0; i1 < 8; ++i1) {
-                        data[0 + 3 * (i1 + 8 * (i2 + 8 * (i3 + 8 * i4)))] = ((float *)(anisomats))[3 * c + 0 + 9 * (i1 + 8 * (i2 + 8 * (i3 + 8 * i4)))];
-                        data[1 + 3 * (i1 + 8 * (i2 + 8 * (i3 + 8 * i4)))] = ((float *)(anisomats))[3 * c + 1 + 9 * (i1 + 8 * (i2 + 8 * (i3 + 8 * i4)))];
-                        data[2 + 3 * (i1 + 8 * (i2 + 8 * (i3 + 8 * i4)))] = ((float *)(anisomats))[3 * c + 2 + 9 * (i1 + 8 * (i2 + 8 * (i3 + 8 * i4)))];
+        vkMapMemory(m_VkFactory->GetDevice(), stagingBufferMemory[c], 0, LTCsize / 9 * 4, 0, (void**)&data);
+        for (int phi = 0; phi < 8; ++phi) {
+            for (int theta = 0; theta < 8; ++theta) {
+                for (int lambda = 0; lambda < 8; ++lambda) {
+                    for (int alpha = 0; alpha < 8; ++alpha) {
+                        data[512 * alpha + 64 * lambda + 8 * theta + phi + 0] = anisomats[alpha][lambda][theta][phi][3 * c + 0];
+                        data[512 * alpha + 64 * lambda + 8 * theta + phi + 1] = anisomats[alpha][lambda][theta][phi][3 * c + 1];
+                        data[512 * alpha + 64 * lambda + 8 * theta + phi + 2] = anisomats[alpha][lambda][theta][phi][3 * c + 2];
+                        data[512 * alpha + 64 * lambda + 8 * theta + phi + 3] = 0;
                     }
                 }
             }
         }
         vkUnmapMemory(m_VkFactory->GetDevice(), stagingBufferMemory[c]);
-        m_VkFactory->CreateImage(64, 8, 8, VK_FORMAT_R32G32B32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        m_VkFactory->CreateImage(8, 8, 64, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_LTCImage[c], m_LTCImageMemory[c], 1);
-        m_VkFactory->TransitionImageLayout(m_LTCImage[c], VK_FORMAT_R32G32B32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1);
-        m_VkFactory->CopyBufferToImage(stagingBuffer[c], m_LTCImage[c], 64, 8, 8, 0);
-        m_VkFactory->TransitionImageLayout(m_LTCImage[c], VK_FORMAT_R32G32B32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
+        m_VkFactory->TransitionImageLayout(m_LTCImage[c], VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1);
+        m_VkFactory->CopyBufferToImage(stagingBuffer[c], m_LTCImage[c], 8, 8, 64, 0);
+        m_VkFactory->TransitionImageLayout(m_LTCImage[c], VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
 
-        m_LTCImageView[c] = m_VkFactory->CreateImageView(m_LTCImage[c], VK_FORMAT_R32G32B32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_3D, 1);
+        m_LTCImageView[c] = m_VkFactory->CreateImageView(m_LTCImage[c], VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_3D, 1);
         vkFreeMemory(m_VkFactory->GetDevice(), stagingBufferMemory[c], nullptr);
         vkDestroyBuffer(m_VkFactory->GetDevice(), stagingBuffer[c], nullptr);
     }

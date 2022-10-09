@@ -104,9 +104,9 @@ private:
     RtPushConstants m_RtPC{
         glm::vec3{0.0, -13.0, 0.0},
         100,
-        true,
-        0.1f,
-        0.1f
+        false,
+        0.9f,
+        0.5f
     };
 
     void LoadModel(std::string);

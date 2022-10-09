@@ -13,46 +13,17 @@ void Application::Run() {
     //Skybox skybox;
     //m_Models.push_back(&skybox);
 
-    //RaytracedModel sphere({ "models/sphere.obj" });
-    //sphere.AddInstance(glm::vec3(0.0, 0.0, 0.0), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    //sphere.AddInstance(m_Lights.green, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    //sphere.AddInstance(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    //sphere.PrepareForRayTracing();
-    //m_Models.push_back(&sphere);
-
-    /*Model tavern({ "models/viking_room.obj" }, "textures/viking_room.png");
-    tavern.AddInstance(glm::vec3(-1.0f, -1.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f), false);
-    m_Models.push_back(&tavern);*/
-    //Model cube({ "models/cube.obj" }, "textures/texture.jpg");
-    //cube.AddInstance(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(0.0f, 0.0f, 1.0f), false);
-    ///*cube.AddInstance(m_Lights.blue, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(0.0f, 0.0f, 1.0f), true);
-    //cube.AddInstance(m_Lights.green, glm::vec3(0.05f, 0.05f, 0.05f), glm::vec3(0.0f, 0.0f, 1.0f), true);*/
-    //ReflectiveModel cube({ "models/cube.obj" });
-    //cube.AddInstance(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(0.0f, 0.0f, 1.0f), false);
-    //m_Models.push_back(&cube);
-
-    //Model skull({ "models/skull.obj", "models/jaw.obj", "models/teethUpper.obj", "models/teethLower.obj" }, "textures/dummy.png");
+#ifdef TESTING
+    RaytracedModel sphere({ "models/sphere.obj" });
+    sphere.AddInstance(glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.2f, 0.2f, 0.2f), glm::vec3(1.0f, 0.0f, 0.0f));
+    sphere.PrepareForRayTracing();
+    m_Models.push_back(&sphere);
+#else
     RaytracedModel skull({ "models/skull.obj", "models/jaw.obj", "models/teethUpper.obj", "models/teethLower.obj" });
     skull.AddInstance(glm::vec3(0.0f, 10.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f));
-    //skull.AddInstance(glm::vec3(1.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    //skull.AddInstance(glm::vec3(2.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    //skull.AddInstance(glm::vec3(3.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    //skull.AddInstance(glm::vec3(-1.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    //skull.AddInstance(glm::vec3(-2.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    //skull.AddInstance(glm::vec3(-3.0f, 0.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    //skull.AddInstance(glm::vec3(0.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    //skull.AddInstance(glm::vec3(1.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    //skull.AddInstance(glm::vec3(2.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    //skull.AddInstance(glm::vec3(3.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    //skull.AddInstance(glm::vec3(-1.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    //skull.AddInstance(glm::vec3(-2.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    //skull.AddInstance(glm::vec3(-3.0f, 0.0f, 2.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f), false);
     skull.PrepareForRayTracing();
     m_Models.push_back(&skull);
-
-    /*Model helmets({ "models/helmets.obj" }, "textures/dummy.png");
-    helmets.AddInstance(glm::vec3(0.0f, 0.0f, 0.5f), glm::vec3(0.2f, 0.2f, 0.2f), glm::vec3(1.0f, 0.0f, 0.0f), false);
-    m_Models.push_back(&helmets);*/
+#endif
 
     m_Camera.m_Position = glm::vec3(0.0f, 0.0f, 13.0f);
     m_Camera.m_LookAt = glm::vec3(0.0f, 0.0, 2.0f);
@@ -287,6 +258,8 @@ void Application::KeyboardInputCallback(GLFWwindow* window, int key, int scancod
 }
 
 void Application::MouseInputCallback(GLFWwindow* window, double xpos, double ypos) {
+#define FRAME_CAPTURE
+#ifndef FRAME_CAPTURE
     static double prevX = 0.0, prevY = 0.0;
     double dX = xpos - prevX;
     double dY = ypos - prevY;
@@ -304,6 +277,7 @@ void Application::MouseInputCallback(GLFWwindow* window, double xpos, double ypo
     else if (dY > 0) {
         app->m_Camera.MoveTarget(MoveDirection::up);
     }
+#endif
 }
 
 void Application::MainLoop() {
