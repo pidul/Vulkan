@@ -93,21 +93,17 @@ float ggxNDFanisotropic(vec3 omegaH, float ax, float ay) {
 }
 
 mat3 orthonormalBasis(vec3 N) {
-    //vec3 f, r;
-    //if (N.z < -0.999999) {
-    //    f = vec3(0, -1, 0);
-    //    r = vec3(-1, 0, 0);
-    //} else {
-    //    float a = 1.0 / (1.0 + N.z);
-    //    float b = -N.x * N.y * a;
-    //    f = normalize(vec3(1.0 - N.x * N.x * a, b, -N.x));
-    //    r = normalize(vec3(b, 1 - N.y * N.y * a, -N.y));
-    //}
-    //return mat3(f, r, N);
-
-    vec3 wy = normalize(cross(N, vec3(1, 0, 0)));
-    vec3 wx = normalize(cross(wy, N));
-    return mat3(wx, wy, N);
+    vec3 f, r;
+    if (N.z < -0.999999) {
+        f = vec3(0, -1, 0);
+        r = vec3(-1, 0, 0);
+    } else {
+        float a = 1.0 / (1.0 + N.z);
+        float b = -N.x * N.y * a;
+        f = normalize(vec3(1.0 - N.x * N.x * a, b, -N.x));
+        r = normalize(vec3(b, 1 - N.y * N.y * a, -N.y));
+    }
+    return mat3(f, r, N);
 }
 
 float lambdaGGXanisotropic(vec3 omega, float ax, float ay) {
@@ -157,15 +153,15 @@ mat3 FetchData_Tex3D(vec3 P)
 
 mat3 LtcMatrix_Tex3D(vec4 P)
 {
-    const float ws = P.z * 8.0f;
+    const float ws = P.z * 7.0f;
     const float ws_f = floor(ws);
-    const float ws_c = min(floor(ws + 1.0f), 8.0f);
+    const float ws_c = min(floor(ws + 1.0f), 7.0f);
     const float w = fract(ws);
 
     const float x = P.x;
     const float y = P.y;
-    const float z1 = (7.0 * ws_f + P.w * 8.0) / 64.0;
-    const float z2 = (7.0 * ws_c + P.w * 8.0) / 64.0;
+    const float z1 = (ws_f * 8.0 + P.w * 7.0 + .5) / 63.5;
+    const float z2 = (ws_c * 8.0 + P.w * 7.0 + .5) / 63.5;
 
     const mat3 m1 = FetchData_Tex3D(vec3(x, y, z1));
     const mat3 m2 = FetchData_Tex3D(vec3(x, y, z2));
@@ -177,37 +173,40 @@ void LtcMatrix(vec3 wo, float alphaX, float alphaY, out mat3 ltcMatrix) {
     float thetaO = acos(cos_theta(wo));
     bool flipConfig = alphaY > alphaX;
     float phiO = atan(wo.y, wo.x);
-    phiO = flipConfig ? pi / 2.0 - phiO : phiO;
+    phiO = flipConfig ? pi * 0.5 - phiO : phiO;
     phiO = phiO >= 0.0 ? phiO : phiO + 2.0 * pi;
-    float u0 = flipConfig ? alphaY : alphaX;
-    float u1 = flipConfig ? alphaX / alphaY : alphaY / alphaX;
-    float u2 = thetaO / pi * 0.5;
-    float u3;
+    float alpha  = flipConfig ? alphaY          : alphaX;
+    float lambda = flipConfig ? alphaX / alphaY : alphaY / alphaX;
+    float theta = thetaO / (pi * .5);
+    float phi;
+    if (theta <= 0.000000001) {
+        phi = 0.;
+    }
 
     mat3 flip = mat3(1.0, 0.0, 0.0,
                      0.0, 1.0, 0.0,
                      0.0, 0.0, 1.0);
 
-    if (phiO < pi * 0.5) {
-        u3 = phiO / (pi * 0.5);
+    if (phiO >= 0 && phiO < pi * 0.5) {
+        phi = phiO;
     } else if (phiO < pi) {
-        u3 = (pi - phiO) / (pi * 0.5);
+        phi = pi - phiO;
         flip = mat3(-1.0, 0.0, 0.0,
                      0.0, 1.0, 0.0,
                      0.0, 0.0, 1.0);
     } else if (phiO < pi * 1.5) {
-        u3 = (phiO - pi) / (pi * 0.5f);
-        flip = mat3(-1.0, 0.0, 0.0,
+        phi = phiO - pi;
+        flip = mat3(-1.0,  0.0, 0.0,
                      0.0, -1.0, 0.0,
-                     0.0, 0.0, 1.0);
+                     0.0,  0.0, 1.0);
     } else if (phiO < pi * 2.0) {
-        u3 = (2.0f * pi - phiO) / (pi * 0.5f);
-        flip = mat3(1.0, 0.0, 0.0,
+        phi = 2.0f * pi - phiO;
+        flip = mat3(1.0,  0.0, 0.0,
                     0.0, -1.0, 0.0,
-                    0.0, 0.0, 1.0);
+                    0.0,  0.0, 1.0);
     }
-    vec4 u = vec4(u0, u1, u2, u3);
-    ltcMatrix = LtcMatrix_Tex3D(u);
+    phi /= (pi * 0.5);
+    ltcMatrix = flip * LtcMatrix_Tex3D(vec4(alpha, lambda, theta, phi));
     if (flipConfig) {
         const mat3 rotMatrix = mat3(0, 1, 0,
                                     1, 0, 0,
@@ -217,6 +216,8 @@ void LtcMatrix(vec3 wo, float alphaX, float alphaY, out mat3 ltcMatrix) {
 }
 
 void main() {
+    vec3 outColor = vec3(0.0);
+
     float alphaX = pc.ax;
     float alphaY = pc.ay;
     Addresses  address = addr.a[gl_InstanceCustomIndexEXT];
@@ -237,10 +238,6 @@ void main() {
     const vec3 nrm      = v0.inNormal * barycentrics.x + v1.inNormal * barycentrics.y + v2.inNormal * barycentrics.z;
     const vec3 worldNrm = normalize(vec3(nrm * gl_WorldToObjectEXT));
 
-    vec3 ambientColor = vec3(0.1, 0.1, 0.1);
-
-    vec3 outColor = vec3(0.0);
-
     float tMin   = 0.001;
     float tMax   = 100;
     vec3  origin = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
@@ -250,20 +247,20 @@ void main() {
 
     vec2 randSeed = vec2(random(gl_WorldRayDirectionEXT.zy), random(gl_WorldRayDirectionEXT.xz));
 
+    mat3 TBN = orthonormalBasis(worldNrm);
+    mat3 TBN_t = transpose(TBN);
+    vec3 wo = normalize(TBN_t * -gl_WorldRayDirectionEXT);
+    vec3 wg = normalize(TBN_t * worldNrm);
+
+    mat3 mLtc;
+    LtcMatrix(wo, alphaX, alphaY, mLtc);
+
     uint samples = 512;
     for (uint i = 0; i < samples; ++i) {
         float rand1 = randSeed.x = random(randSeed);
         float rand2 = randSeed.y = random(randSeed);
 
-        mat3 TBN = orthonormalBasis(worldNrm);
-        mat3 TBN_t = transpose(TBN);
-        vec3 wo = normalize(TBN_t * -gl_WorldRayDirectionEXT);
-        vec3 wg = normalize(TBN_t * worldNrm);
-
         if(pc.useLtc) {
-            mat3 mLtc;
-            LtcMatrix(wo, alphaX, alphaY, mLtc);
-
             float sinTheta = sqrt(rand1);
             float x = sinTheta * cos(2.0 * pi * rand2);
             float y = sinTheta * sin(2.0 * pi * rand2);
@@ -277,12 +274,12 @@ void main() {
             float doPdf = max(0, z) / pi;
 
             mLtc = transpose(mLtc);
-            float ltcDeterminant = determinant(mLtc);
+            float ltcDeterminant = abs(determinant(mLtc));
             float wiLen = dot(wi * mLtc, wi * mLtc);
             float jacobian = ltcDeterminant / (wiLen * wiLen * wiLen);
             float pdf = doPdf * jacobian;
 
-            outColor += textureLod(Cubemap, wiWorld, 0).xyz * pdf / samples;
+            outColor += textureLod(Cubemap, wiWorld, 0).xyz * anisotropicGGX(wiWorld, -gl_WorldRayDirectionEXT, worldNrm, alphaX, alphaY) / (samples * pdf);
         } else {
             vec3 vh = normalize(vec3(alphaX * wo.x, alphaY * wo.y, wo.z));
             float lensq = vh.x * vh.x + vh.y * vh.y;
@@ -301,27 +298,24 @@ void main() {
             vec3 wi = normalize(2.0 * dot(wm, wo) * wm - wo);
             vec3 wh = normalize(wo + wi);
             vec3 wiWorld = normalize(TBN * wi);
-        
-            float lambda_wo = lambdaGGXanisotropic(wo, alphaX, alphaY);
-            float lambda_wi = lambdaGGXanisotropic(wi, alphaX, alphaY);
+
             float D = ggxNDFanisotropic(wh, alphaX, alphaY);
-            float G = 1.0 / (1.0 + lambda_wo + lambda_wi);
 
             float pdf = D * dot(wm, wg);
             relfect.hitValue = vec3(0.0);
             traceRayEXT(topLevelAS,  // acceleration structure
-                    flags,       // rayFlags
-                    0xFF,        // cullMask
-                    0,           // sbtRecordOffset
-                    0,           // sbtRecordStride
-                    2,           // missIndex
-                    origin,      // ray origin
-                    tMin,        // ray min range
-                    wiWorld,     // ray direction
-                    tMax,        // ray max range
-                    2            // payload (location = 2)
+                    flags,           // rayFlags
+                    0xFF,            // cullMask
+                    0,               // sbtRecordOffset
+                    0,               // sbtRecordStride
+                    2,               // missIndex
+                    origin,          // ray origin
+                    tMin,            // ray min range
+                    wiWorld,         // ray direction
+                    tMax,            // ray max range
+                    2                // payload (location = 2)
             );
-            outColor += relfect.hitValue * anisotropicGGX(wiWorld, -gl_WorldRayDirectionEXT, worldNrm, alphaX, alphaY) * pdf / samples;
+            outColor += relfect.hitValue * anisotropicGGX(wiWorld, -gl_WorldRayDirectionEXT, worldNrm, alphaX, alphaY) / (samples * pdf);
         }
     }
 

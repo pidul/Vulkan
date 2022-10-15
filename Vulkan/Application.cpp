@@ -13,17 +13,10 @@ void Application::Run() {
     //Skybox skybox;
     //m_Models.push_back(&skybox);
 
-#ifdef TESTING
-    RaytracedModel sphere({ "models/sphere.obj" });
-    sphere.AddInstance(glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.2f, 0.2f, 0.2f), glm::vec3(1.0f, 0.0f, 0.0f));
-    sphere.PrepareForRayTracing();
-    m_Models.push_back(&sphere);
-#else
     RaytracedModel skull({ "models/skull.obj", "models/jaw.obj", "models/teethUpper.obj", "models/teethLower.obj" });
     skull.AddInstance(glm::vec3(0.0f, 10.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f));
     skull.PrepareForRayTracing();
     m_Models.push_back(&skull);
-#endif
 
     m_Camera.m_Position = glm::vec3(0.0f, 0.0f, 13.0f);
     m_Camera.m_LookAt = glm::vec3(0.0f, 0.0, 2.0f);

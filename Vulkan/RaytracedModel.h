@@ -106,7 +106,7 @@ private:
         100,
         false,
         0.9f,
-        0.5f
+        0.9f
     };
 
     void LoadModel(std::string);

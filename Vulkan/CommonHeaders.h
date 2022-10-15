@@ -30,11 +30,7 @@
 #include <set>
 #include <mutex>
 
-//#define TESTING
-
 typedef std::optional<uint32_t> QueueFamilyIndices;
 
 const uint32_t DEFAULT_WIDTH = 800;
 const uint32_t DEFAULT_HEIGHT = 600;
-
-const uint32_t MAX_OBJECTS_ON_SCENE = 5;

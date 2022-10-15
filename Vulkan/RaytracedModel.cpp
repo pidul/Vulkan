@@ -15,11 +15,7 @@ RaytracedModel::RaytracedModel(std::vector<std::string> modelFilenames) :
     CreateVertexBuffer();
     CreateIndexBuffer();
     CreateDescriptorPool();
-#ifndef TESTING
     CreateTextureImage({ "textures/posx.jpg", "textures/negx.jpg", "textures/posy.jpg" , "textures/negy.jpg" , "textures/posz.jpg" , "textures/negz.jpg" });
-#else
-    CreateTextureImage({ "textures/1.png", "textures/1.png", "textures/1.png" , "textures/1.png" , "textures/2.png" , "textures/1.png" });
-#endif
     CreateLTCImage();
     m_VkFactory->CreateTextureSampler(m_TextureSampler);
     std::vector<VkDescriptorImageInfo> imageInfos;
@@ -526,19 +522,19 @@ void RaytracedModel::CreateLTCImage() {
     std::array<VkBuffer, 3> stagingBuffer{};
     std::array<VkDeviceMemory, 3> stagingBufferMemory{};
 
-    float *data{};
+    void *data;
     for (uint32_t c = 0; c < stagingBuffer.size(); ++c) {
         m_VkFactory->CreateBuffer(LTCsize / 9 * 4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
             stagingBuffer[c], stagingBufferMemory[c]);
-        vkMapMemory(m_VkFactory->GetDevice(), stagingBufferMemory[c], 0, LTCsize / 9 * 4, 0, (void**)&data);
-        for (int phi = 0; phi < 8; ++phi) {
-            for (int theta = 0; theta < 8; ++theta) {
-                for (int lambda = 0; lambda < 8; ++lambda) {
-                    for (int alpha = 0; alpha < 8; ++alpha) {
-                        data[512 * alpha + 64 * lambda + 8 * theta + phi + 0] = anisomats[alpha][lambda][theta][phi][3 * c + 0];
-                        data[512 * alpha + 64 * lambda + 8 * theta + phi + 1] = anisomats[alpha][lambda][theta][phi][3 * c + 1];
-                        data[512 * alpha + 64 * lambda + 8 * theta + phi + 2] = anisomats[alpha][lambda][theta][phi][3 * c + 2];
-                        data[512 * alpha + 64 * lambda + 8 * theta + phi + 3] = 0;
+        vkMapMemory(m_VkFactory->GetDevice(), stagingBufferMemory[c], 0, LTCsize / 9 * 4, 0, &data);
+        for (int alpha = 0; alpha < 8; ++alpha) {
+            for (int lambda = 0; lambda < 8; ++lambda) {
+                for (int theta = 0; theta < 8; ++theta) {
+                    for (int phi = 0; phi < 8; ++phi) {
+                        static_cast<float*>(data)[0 + 4 * (phi + 8 * (theta + 8 * (lambda + 8 * alpha)))] = anisomats[alpha][lambda][theta][phi][3 * c + 0];
+                        static_cast<float*>(data)[1 + 4 * (phi + 8 * (theta + 8 * (lambda + 8 * alpha)))] = anisomats[alpha][lambda][theta][phi][3 * c + 1];
+                        static_cast<float*>(data)[2 + 4 * (phi + 8 * (theta + 8 * (lambda + 8 * alpha)))] = anisomats[alpha][lambda][theta][phi][3 * c + 2];
+                        static_cast<float*>(data)[3 + 4 * (phi + 8 * (theta + 8 * (lambda + 8 * alpha)))] = 0.0;
                     }
                 }
             }
