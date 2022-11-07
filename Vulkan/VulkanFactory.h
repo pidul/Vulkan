@@ -29,8 +29,6 @@ struct AccelerationStructure {
 };
 
 struct RtPushConstants {
-    glm::vec3 lightPos;
-    float intensity;
     bool useLtc;
     float ax;
     float ay;
@@ -159,7 +157,7 @@ public:
     OffscreenRender &&CreateOffscreenRenderer();
 
     void FetchRenderTimeResults(uint32_t index) {
-//#define TIMING_OFF
+#define TIMING_OFF
 #ifndef TIMING_OFF // timing
         uint64_t buffer[2];
 
@@ -204,7 +202,7 @@ public:
     VkDeviceAddress GetBufferAddress(VkBuffer buffer);
     VkDeviceAddress GetAccelerationStructureAddress(VkAccelerationStructureKHR as);
     AccelerationStructure &&CreateBLAS(VkBuffer vertexBuffer, VkBuffer indexBuffer, uint32_t vertexNo, uint32_t indexNo);
-    AccelerationStructure &&CreateTLAS(glm::mat4 transformMatrix, VkDeviceAddress BLASAddress, uint32_t instanceNo);
+    void CreateTLAS(AccelerationStructure &tlas, VkAccelerationStructureInstanceKHR &asInstance, VkBuildAccelerationStructureFlagsKHR flags, uint32_t primitiveCount, bool update);
     void CreateRtDescriptorSets(AccelerationStructure tlas, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorPool descriptorPool, std::vector<VkDescriptorSet> &descriptorSets, std::vector<VkImageView> &imageViews);
     void UpdateRtDescriptorSets(std::vector<VkDescriptorSet> &descriptorSets);
     void CreateRtPipeline(const std::vector<VkDescriptorSetLayout> &rtDescSetLayouts, VkPipelineLayout &pipelineLayout, VkPipeline &rtPipeline, std::vector<VkRayTracingShaderGroupCreateInfoKHR> &shaderGroups);

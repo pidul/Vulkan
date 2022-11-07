@@ -22,7 +22,12 @@ public:
 
     void PrepareForRayTracing();
 
-    void Raytrace(VkCommandBuffer cmdBuff, glm::mat4 viewMatrix, uint32_t index, bool useLtc);
+    void SetConstants(bool useLtc, float alphaX, float alphaY) {
+        m_RtPC.useLtc = useLtc;
+        m_RtPC.ax = alphaX;
+        m_RtPC.ay = alphaY;
+    }
+    void Raytrace(VkCommandBuffer cmdBuff, glm::mat4 viewMatrix, float time, uint32_t index);
     void Postprocess(VkCommandBuffer cmdBuff, uint32_t idx);
 
 private:
@@ -32,12 +37,12 @@ private:
         glm::vec3 m_Rotation;
     public:
         Instance(glm::vec3 tv, glm::vec3 sv, glm::vec3 rv) : m_Translation(tv), m_Scale(sv), m_Rotation(rv) {}
-        glm::mat4 GetModelMatrix() {
+        glm::mat4 GetModelMatrix(float time) {
             glm::mat4 mat(1.0f);
             mat = glm::translate(mat, m_Translation);
             mat = glm::scale(mat, m_Scale);
-            //mat = glm::rotate(mat, glm::radians(90.0f), m_Rotation);
-            return glm::inverse(mat);
+            mat = glm::rotate(mat, time * glm::radians(360.0f), m_Rotation);
+            return mat;
         }
     };
 
@@ -91,6 +96,7 @@ private:
     VkPipelineLayout m_PostPipelineLayout;
     VkPipeline m_PostPipeline;
 
+    VkAccelerationStructureInstanceKHR m_tlasInstance;
     AccelerationStructure m_Blas;
     AccelerationStructure m_Tlas;
     VkBuffer m_RtSBTBuffer;
@@ -102,10 +108,8 @@ private:
     VkStridedDeviceAddressRegionKHR m_CallRegion{};
 
     RtPushConstants m_RtPC{
-        glm::vec3{0.0, -13.0, 0.0},
-        100,
         false,
-        0.9f,
+        0.5f,
         0.9f
     };
 

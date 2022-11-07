@@ -14,12 +14,12 @@ void Application::Run() {
     //m_Models.push_back(&skybox);
 
     RaytracedModel skull({ "models/skull.obj", "models/jaw.obj", "models/teethUpper.obj", "models/teethLower.obj" });
-    skull.AddInstance(glm::vec3(0.0f, 10.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f), glm::vec3(1.0f, 0.0f, 0.0f));
+    skull.AddInstance(glm::vec3(0.0f, 10.0f, 1.0f), glm::vec3(4.f, 4.f, 4.f), glm::vec3(0.0f, 1.0f, 0.0f));
     skull.PrepareForRayTracing();
     m_Models.push_back(&skull);
 
-    m_Camera.m_Position = glm::vec3(0.0f, 0.0f, 13.0f);
-    m_Camera.m_LookAt = glm::vec3(0.0f, 0.0, 2.0f);
+    m_Camera.m_Position = glm::vec3(0.0f, -1.0f, 13.0f);
+    m_Camera.m_LookAt = glm::vec3(0.0f, -1.0, 2.0f);
     MainLoop();
     Cleanup();
 }
@@ -58,6 +58,7 @@ void Application::InitVulkan() {
 }
 
 void Application::RecordCommandBuffers(uint32_t index) {
+    static auto start = std::chrono::system_clock::now();
     VkCommandBufferBeginInfo primaryCmdBuffbeginInfo = {
         VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,                // sType
         nullptr,                                                    // pNext
@@ -129,7 +130,25 @@ void Application::RecordCommandBuffers(uint32_t index) {
         //vkCmdEndRenderPass(m_VkFactory->GetCommandBuffer(index));
     } else {
         vkCmdWriteTimestamp(m_VkFactory->GetCommandBuffer(index), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_VkFactory->GetQueryPool(), index * 2);
-        m_Models[0]->Raytrace(m_VkFactory->GetCommandBuffer(index), m_Camera.GetViewMatrix(), index, m_UseLtc);
+        //std::chrono::duration<float> diff = std::chrono::system_clock::now() - start;
+        //m_Models[0]->Raytrace(m_VkFactory->GetCommandBuffer(index), m_Camera.GetViewMatrix(), diff.count() / 5, index, m_UseLtc);
+        static float rot = 0;
+        if (m_UseLtc) {
+            rot += 0.0056f;
+        } else {
+            rot += 0.01f;
+        }
+        float alphas[] = { 0.1, 0.5, 0.9 };
+        m_UseLtc = static_cast<int>(rot) % 2;
+        static float prevax = 0.0, prevay = 0.0;
+        float ax = alphas[(static_cast<int>(rot) % 18) / 6];
+        float ay = alphas[(static_cast<int>(rot) % 6) / 2];
+        if (prevax != ax || prevay != ay) {
+            std::cout << ax << ", " << ay << std::endl;
+        }
+        prevax = ax; prevay = ay;
+        m_Models[0]->SetConstants(m_UseLtc, ax, ay);
+        m_Models[0]->Raytrace(m_VkFactory->GetCommandBuffer(index), m_Camera.GetViewMatrix(), rot, index);
 
         // postprocess
 

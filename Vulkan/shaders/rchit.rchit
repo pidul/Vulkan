@@ -38,8 +38,6 @@ layout(set = 3, binding = 1) uniform sampler3D ltc2;
 layout(set = 3, binding = 2) uniform sampler3D ltc3;
 
 layout(push_constant) uniform constants {
-    vec3 position;
-    float intensity;
     bool useLtc;
     float ax;
     float ay;

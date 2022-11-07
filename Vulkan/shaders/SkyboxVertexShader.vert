@@ -12,5 +12,5 @@ layout(location = 0) out vec3 vertTexcoord;
 void main() {
     vec3 position = mat3(ubo.model * ubo.view) * inPos.xyz;
     gl_Position = (ubo.projection * vec4(position, 0.0)).xyzz;
-    vertTexcoord = inPos.xzy;
+    vertTexcoord = inPos.xyz;
 }

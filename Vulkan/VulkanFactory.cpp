@@ -1509,18 +1509,7 @@ AccelerationStructure &&VulkanFactory::CreateBLAS(VkBuffer vertexBuffer, VkBuffe
     return std::move(blas);
 }
 
-AccelerationStructure &&VulkanFactory::CreateTLAS(glm::mat4 transformMatrix, VkDeviceAddress BLASAddress, uint32_t primitiveCount) {
-    VkTransformMatrixKHR matrix;
-    memcpy(&matrix, &transformMatrix, sizeof(VkTransformMatrixKHR));
-    VkAccelerationStructureInstanceKHR asInstance{
-        matrix,                                                     // transform
-        0,                                                          // instanceCustomIndex
-        0xFF,                                                       // mask
-        0,                                                          // instanceShaderBindingTableRecordOffset
-        VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,  // flags
-        BLASAddress                                                 // accelerationStructureReference
-    };
-
+void VulkanFactory::CreateTLAS(AccelerationStructure& tlas,VkAccelerationStructureInstanceKHR& asInstance, VkBuildAccelerationStructureFlagsKHR flags, uint32_t primitiveCount, bool update) {
     VkCommandBuffer cmdBuff = BeginSingleTimeCommands();
 
     VkBuffer instanceBuffer{};
@@ -1562,8 +1551,9 @@ AccelerationStructure &&VulkanFactory::CreateTLAS(glm::mat4 transformMatrix, VkD
         VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,   // sType
         nullptr,                                                            // pNext
         VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,                       // type
-        VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,          // flags
-        VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,                     // mode
+        flags,                                                              // flags
+        update ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR :
+                 VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,            // mode
         VK_NULL_HANDLE,                                                     // srcAccelerationStructure
         VK_NULL_HANDLE,                                                     // dstAccelerationStructure
         1,                                                                  // geometryCount
@@ -1582,23 +1572,23 @@ AccelerationStructure &&VulkanFactory::CreateTLAS(glm::mat4 transformMatrix, VkD
     uint32_t count{ 1 };
     vkGetAccelerationStructureBuildSizesKHR(m_Device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &asBuildGeometryInfo, &count, &asBuildSizesInfo);
 
-    AccelerationStructure tlas{};
-
     CreateBuffer(asBuildSizesInfo.accelerationStructureSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR |
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, 0, tlas.buffer, tlas.memory);
 
-    VkAccelerationStructureCreateInfoKHR asCreateInfo{
-        VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,   // sType
-        nullptr,                                                    // pNext
-        0,                                                          // createFlags
-        tlas.buffer,                                                // buffer
-        0,                                                          // offset
-        asBuildSizesInfo.accelerationStructureSize,                 // size
-        VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,               // type
-        0                                                           // deviceAddress
-    };
+    if (!update) {
+        VkAccelerationStructureCreateInfoKHR asCreateInfo{
+            VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,   // sType
+            nullptr,                                                    // pNext
+            0,                                                          // createFlags
+            tlas.buffer,                                                // buffer
+            0,                                                          // offset
+            asBuildSizesInfo.accelerationStructureSize,                 // size
+            VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,               // type
+            0                                                           // deviceAddress
+        };
 
-    vkCreateAccelerationStructureKHR(m_Device, &asCreateInfo, nullptr, &tlas.as);
+        vkCreateAccelerationStructureKHR(m_Device, &asCreateInfo, nullptr, &tlas.as);
+    }
 
     VkBuffer scratchBuffer{};
     VkDeviceMemory scratchMemory{};
@@ -1608,6 +1598,9 @@ AccelerationStructure &&VulkanFactory::CreateTLAS(glm::mat4 transformMatrix, VkD
     VkDeviceAddress scratchAddress = GetBufferAddress(scratchBuffer);
     
     asBuildGeometryInfo.scratchData.deviceAddress = scratchAddress;
+    if (update) {
+        asBuildGeometryInfo.srcAccelerationStructure = tlas.as;
+    }
     asBuildGeometryInfo.dstAccelerationStructure = tlas.as;
 
     const VkAccelerationStructureBuildRangeInfoKHR *asBuildRangeInfo = new VkAccelerationStructureBuildRangeInfoKHR{
@@ -1623,8 +1616,6 @@ AccelerationStructure &&VulkanFactory::CreateTLAS(glm::mat4 transformMatrix, VkD
 
     vkFreeMemory(m_Device, scratchMemory, nullptr);
     vkFreeMemory(m_Device, instanceMemory, nullptr);
-
-    return std::move(tlas);
 }
 
 void VulkanFactory::CreateRtDescriptorSets(AccelerationStructure tlas, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorPool descriptorPool,

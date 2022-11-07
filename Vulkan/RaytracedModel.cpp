@@ -15,7 +15,9 @@ RaytracedModel::RaytracedModel(std::vector<std::string> modelFilenames) :
     CreateVertexBuffer();
     CreateIndexBuffer();
     CreateDescriptorPool();
-    CreateTextureImage({ "textures/posx.jpg", "textures/negx.jpg", "textures/posy.jpg" , "textures/negy.jpg" , "textures/posz.jpg" , "textures/negz.jpg" });
+    //CreateTextureImage({ "textures/posx.jpg", "textures/negx.jpg", "textures/posy.jpg" , "textures/negy.jpg" , "textures/posz.jpg" , "textures/negz.jpg" });
+    CreateTextureImage({ "textures/posx2.jpg", "textures/negx2.jpg", "textures/posy2.jpg" , "textures/negy2.jpg" , "textures/posz2.jpg" , "textures/negz2.jpg" });
+    //CreateTextureImage({ "textures/black.jpg", "textures/black.jpg", "textures/black.jpg" , "textures/black.jpg" , "textures/white.jpg" , "textures/black.jpg" });
     CreateLTCImage();
     m_VkFactory->CreateTextureSampler(m_TextureSampler);
     std::vector<VkDescriptorImageInfo> imageInfos;
@@ -177,7 +179,18 @@ void RaytracedModel::Cleanup() {
 
 void RaytracedModel::PrepareForRayTracing() {
     m_Blas = m_VkFactory->CreateBLAS(m_VertexBuffer, m_IndexBuffer, (uint32_t)(m_Vertices.size()), (uint32_t)(m_Indices.size() / 3));
-    m_Tlas = m_VkFactory->CreateTLAS(m_Instances[0].GetModelMatrix(), m_VkFactory->GetAccelerationStructureAddress(m_Blas.as), (uint32_t)(m_Vertices.size()));
+    VkTransformMatrixKHR matrix;
+    glm::mat4 transformMatrix = m_Instances[0].GetModelMatrix(0.0f);
+    memcpy(&matrix, &transformMatrix, sizeof(VkTransformMatrixKHR));
+    m_tlasInstance = {
+        matrix,                                                     // transform
+        0,                                                          // instanceCustomIndex
+        0xFF,                                                       // mask
+        0,                                                          // instanceShaderBindingTableRecordOffset
+        VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,  // flags
+        m_VkFactory->GetAccelerationStructureAddress(m_Blas.as)     // accelerationStructureReference
+    };
+    m_VkFactory->CreateTLAS(m_Tlas, m_tlasInstance, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR, (uint32_t)(m_Vertices.size()), false);
 
     std::vector<VkDescriptorPoolSize> descrPoolSize = {
         {
@@ -203,7 +216,14 @@ void RaytracedModel::PrepareForRayTracing() {
     m_VkFactory->CreateShaderBindingTable(m_RtPipeline, m_RgenRegion, m_MissRegion, m_HitRegion, m_CallRegion, m_RtSBTBuffer, m_RtSBTBufferMemory);
 }
 
-void RaytracedModel::Raytrace(VkCommandBuffer cmdBuff, glm::mat4 viewMatrix, uint32_t index, bool useLtc) {
+void RaytracedModel::Raytrace(VkCommandBuffer cmdBuff, glm::mat4 viewMatrix, float time, uint32_t index) {
+    VkTransformMatrixKHR matrix;
+    glm::mat4 transformMatrix = m_Instances[0].GetModelMatrix(time);
+    memcpy(&matrix, &transformMatrix, sizeof(VkTransformMatrixKHR));
+    m_tlasInstance.transform = matrix;
+    m_VkFactory->CreateTLAS(m_Tlas, m_tlasInstance, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR, (uint32_t)(m_Vertices.size()), true);
+
+
     RtUniformBufferObject ubo{};
     glm::mat4 proj = glm::perspective(glm::radians(60.0f), m_Width / (float)m_Height, 0.1f, 200.0f);
     proj[1][1] *= -1;
@@ -249,8 +269,6 @@ void RaytracedModel::Raytrace(VkCommandBuffer cmdBuff, glm::mat4 viewMatrix, uin
         nullptr                                                 // pTexelBufferView
     };
     vkUpdateDescriptorSets(m_VkFactory->GetDevice(), (uint32_t)(writeDescriptorSet.size()), writeDescriptorSet.data(), 0, nullptr);
-
-    m_RtPC.useLtc = useLtc;
 
     std::vector<VkDescriptorSet> descSets{ m_RtDescriptorSets[index], m_DescriptorSets[index], m_SkyboxDescriptorSets[index], m_LTCDescriptorSets[index] };
     vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_RtPipeline);
