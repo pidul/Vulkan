@@ -16,8 +16,8 @@ RaytracedModel::RaytracedModel(std::vector<std::string> modelFilenames) :
     CreateIndexBuffer();
     CreateDescriptorPool();
     //CreateTextureImage({ "textures/posx.jpg", "textures/negx.jpg", "textures/posy.jpg" , "textures/negy.jpg" , "textures/posz.jpg" , "textures/negz.jpg" });
-    CreateTextureImage({ "textures/posx2.jpg", "textures/negx2.jpg", "textures/posy2.jpg" , "textures/negy2.jpg" , "textures/posz2.jpg" , "textures/negz2.jpg" });
-    //CreateTextureImage({ "textures/black.jpg", "textures/black.jpg", "textures/black.jpg" , "textures/black.jpg" , "textures/white.jpg" , "textures/black.jpg" });
+    //CreateTextureImage({ "textures/posx2.jpg", "textures/negx2.jpg", "textures/posy2.jpg" , "textures/negy2.jpg" , "textures/posz2.jpg" , "textures/negz2.jpg" });
+    CreateTextureImage({ "textures/black.jpg", "textures/black.jpg", "textures/black.jpg" , "textures/black.jpg" , "textures/blue.jpg" , "textures/black.jpg" });
     CreateLTCImage();
     m_VkFactory->CreateTextureSampler(m_TextureSampler);
     std::vector<VkDescriptorImageInfo> imageInfos;
@@ -549,10 +549,10 @@ void RaytracedModel::CreateLTCImage() {
             for (int lambda = 0; lambda < 8; ++lambda) {
                 for (int theta = 0; theta < 8; ++theta) {
                     for (int phi = 0; phi < 8; ++phi) {
-                        static_cast<float*>(data)[0 + 4 * (phi + 8 * (theta + 8 * (lambda + 8 * alpha)))] = anisomats[alpha][lambda][theta][phi][3 * c + 0];
-                        static_cast<float*>(data)[1 + 4 * (phi + 8 * (theta + 8 * (lambda + 8 * alpha)))] = anisomats[alpha][lambda][theta][phi][3 * c + 1];
-                        static_cast<float*>(data)[2 + 4 * (phi + 8 * (theta + 8 * (lambda + 8 * alpha)))] = anisomats[alpha][lambda][theta][phi][3 * c + 2];
-                        static_cast<float*>(data)[3 + 4 * (phi + 8 * (theta + 8 * (lambda + 8 * alpha)))] = 0.0;
+                        static_cast<float*>(data)[0 + 4 * (alpha + 8 * (lambda + 8 * (theta + 8 * phi)))] = anisomats[alpha][lambda][theta][phi][3 * c + 0];
+                        static_cast<float*>(data)[1 + 4 * (alpha + 8 * (lambda + 8 * (theta + 8 * phi)))] = anisomats[alpha][lambda][theta][phi][3 * c + 1];
+                        static_cast<float*>(data)[2 + 4 * (alpha + 8 * (lambda + 8 * (theta + 8 * phi)))] = anisomats[alpha][lambda][theta][phi][3 * c + 2];
+                        static_cast<float*>(data)[3 + 4 * (alpha + 8 * (lambda + 8 * (theta + 8 * phi)))] = 0.0;
                     }
                 }
             }

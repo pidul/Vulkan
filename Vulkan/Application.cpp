@@ -10,9 +10,6 @@ void Application::Run() {
     m_Lights.green = glm::vec4(std::cos(M_PI / 180 * 220), std::sin(M_PI / 180 * 220), 0.8f, 1.0f);
     m_Lights.blue = glm::vec4(std::cos(/*M_PI / 180 * 240 */0), std::sin(/*M_PI / 180 * 240*/ 0), 2.0f, 1.0f);
 
-    //Skybox skybox;
-    //m_Models.push_back(&skybox);
-
     RaytracedModel skull({ "models/skull.obj", "models/jaw.obj", "models/teethUpper.obj", "models/teethLower.obj" });
     skull.AddInstance(glm::vec3(0.0f, 10.0f, 1.0f), glm::vec3(4.f, 4.f, 4.f), glm::vec3(0.0f, 1.0f, 0.0f));
     skull.PrepareForRayTracing();
@@ -130,11 +127,9 @@ void Application::RecordCommandBuffers(uint32_t index) {
         //vkCmdEndRenderPass(m_VkFactory->GetCommandBuffer(index));
     } else {
         vkCmdWriteTimestamp(m_VkFactory->GetCommandBuffer(index), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_VkFactory->GetQueryPool(), index * 2);
-        //std::chrono::duration<float> diff = std::chrono::system_clock::now() - start;
-        //m_Models[0]->Raytrace(m_VkFactory->GetCommandBuffer(index), m_Camera.GetViewMatrix(), diff.count() / 5, index, m_UseLtc);
         static float rot = 0;
         if (m_UseLtc) {
-            rot += 0.0056f;
+            rot += 0.006f;
         } else {
             rot += 0.01f;
         }
@@ -154,7 +149,6 @@ void Application::RecordCommandBuffers(uint32_t index) {
 
         std::array<VkClearValue, 2> clearColors = {};
         clearColors[0] = { 0.0f, 0.0f, 0.0f, 1.0f };
-        // clearColors[0] = { 0.1f, 0.1f, 0.1f, 1.0f };
         clearColors[1] = { 1.0f, 0 };
 
         VkRenderPassBeginInfo renderPassBeginInfo = {
